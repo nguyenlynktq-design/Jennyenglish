@@ -1,7 +1,7 @@
 // ===== EXERCISE VALIDATION UTILITIES =====
 // Validates all exercise content before rendering
 
-import { VocabularyLevel, RewriteQ, ReadingMCQ, PronunciationMCQ, MegaTest50 } from '../types';
+import { VocabularyLevel, RewriteQ, ReadingMCQ, TrueFalseQ, FillBlankBoxQ, MegaTest50, MultipleChoiceQ, FillInputQ, ScrambleQ } from '../types';
 
 const VALID_LEVELS: VocabularyLevel[] = ['A1', 'A2', 'B1'];
 const VALID_CHOICES = ['A', 'B', 'C'] as const;
@@ -13,7 +13,7 @@ export function validateRewriteQ(q: any, index: number): { valid: boolean; error
         return { valid: false, error: `Rewrite Q${index + 1}: không phải object hợp lệ` };
     }
 
-    const requiredFields = ['id', 'original_sentence', 'instruction', 'hint_sample', 'rewritten_correct', 'explanation_vi', 'level'];
+    const requiredFields = ['id', 'original_sentence', 'instruction', 'rewritten_correct', 'explanation_vi', 'level'];
     for (const field of requiredFields) {
         if (!q[field] || (typeof q[field] === 'string' && q[field].trim() === '')) {
             return { valid: false, error: `Rewrite Q${index + 1}: thiếu field "${field}"` };
@@ -24,8 +24,8 @@ export function validateRewriteQ(q: any, index: number): { valid: boolean; error
         return { valid: false, error: `Rewrite Q${index + 1}: level "${q.level}" không hợp lệ` };
     }
 
-    // Check hint is not the full answer
-    if (q.hint_sample.toLowerCase() === q.rewritten_correct.toLowerCase()) {
+    // Check hint is not the full answer (hint is optional)
+    if (q.hint_sample && q.hint_sample.toLowerCase() === q.rewritten_correct.toLowerCase()) {
         return { valid: false, error: `Rewrite Q${index + 1}: hint không được là đáp án đầy đủ` };
     }
 
@@ -37,7 +37,7 @@ export function validateReadingMCQ(q: any, index: number): { valid: boolean; err
         return { valid: false, error: `Reading Q${index + 1}: không phải object hợp lệ` };
     }
 
-    const requiredFields = ['id', 'question_text', 'choices', 'correct_choice', 'explanation_vi', 'level'];
+    const requiredFields = ['id', 'question_text', 'choices', 'correct_choice', 'explanation_vi'];
     for (const field of requiredFields) {
         if (q[field] === undefined || q[field] === null) {
             return { valid: false, error: `Reading Q${index + 1}: thiếu field "${field}"` };
@@ -55,36 +55,49 @@ export function validateReadingMCQ(q: any, index: number): { valid: boolean; err
     return { valid: true };
 }
 
-export function validatePronunciationMCQ(q: any, index: number): { valid: boolean; error?: string } {
+export function validateTrueFalseQ(q: any, index: number): { valid: boolean; error?: string } {
     if (!q || typeof q !== 'object') {
-        return { valid: false, error: `Pronunciation Q${index + 1}: không phải object hợp lệ` };
+        return { valid: false, error: `True/False Q${index + 1}: không phải object hợp lệ` };
     }
 
-    const requiredFields = ['id', 'instruction', 'choices', 'correct_choice', 'explanation_vi', 'level'];
+    const requiredFields = ['id', 'statement', 'correct_answer', 'explanation_vi'];
     for (const field of requiredFields) {
-        if (q[field] === undefined || q[field] === null) {
-            return { valid: false, error: `Pronunciation Q${index + 1}: thiếu field "${field}"` };
+        if (q[field] === undefined || q[field] === null || (typeof q[field] === 'string' && q[field].trim() === '')) {
+            return { valid: false, error: `True/False Q${index + 1}: thiếu field "${field}"` };
         }
     }
 
-    if (!Array.isArray(q.choices) || q.choices.length !== 3) {
-        return { valid: false, error: `Pronunciation Q${index + 1}: choices phải có đúng 3 lựa chọn` };
+    if (typeof q.correct_answer !== 'boolean') {
+        return { valid: false, error: `True/False Q${index + 1}: correct_answer phải là true hoặc false` };
     }
 
-    // Validate each choice has word and underlined
-    for (let i = 0; i < q.choices.length; i++) {
-        const choice = q.choices[i];
-        if (!choice.word || !choice.underlined) {
-            return { valid: false, error: `Pronunciation Q${index + 1}: choice ${i + 1} thiếu word hoặc underlined` };
-        }
-        // Verify underlined part exists in word
-        if (!choice.word.toLowerCase().includes(choice.underlined.toLowerCase())) {
-            return { valid: false, error: `Pronunciation Q${index + 1}: underlined "${choice.underlined}" không có trong word "${choice.word}"` };
+    return { valid: true };
+}
+
+export function validateFillBlankBoxQ(q: any, index: number): { valid: boolean; error?: string } {
+    if (!q || typeof q !== 'object') {
+        return { valid: false, error: `Fill-blank-box Q${index + 1}: không phải object hợp lệ` };
+    }
+
+    const requiredFields = ['id', 'sentence', 'word_box', 'correct_answer', 'explanation_vi'];
+    for (const field of requiredFields) {
+        if (q[field] === undefined || q[field] === null || (typeof q[field] === 'string' && q[field].trim() === '')) {
+            return { valid: false, error: `Fill-blank-box Q${index + 1}: thiếu field "${field}"` };
         }
     }
 
-    if (!VALID_CHOICES.includes(q.correct_choice)) {
-        return { valid: false, error: `Pronunciation Q${index + 1}: correct_choice phải là A, B, hoặc C` };
+    if (!Array.isArray(q.word_box) || q.word_box.length < 4) {
+        return { valid: false, error: `Fill-blank-box Q${index + 1}: word_box phải có ít nhất 4 từ` };
+    }
+
+    // Check sentence has blank
+    if (!q.sentence.includes('____')) {
+        return { valid: false, error: `Fill-blank-box Q${index + 1}: sentence phải có chỗ trống ____` };
+    }
+
+    // Check correct_answer is in word_box
+    if (!q.word_box.includes(q.correct_answer)) {
+        return { valid: false, error: `Fill-blank-box Q${index + 1}: correct_answer phải có trong word_box` };
     }
 
     return { valid: true };
@@ -110,12 +123,66 @@ export function validateMegaTest50(test: any): ValidationResult {
         errors.push(`Level "${test.level}" không hợp lệ - phải là A1, A2, hoặc B1`);
     }
 
-    // Validate passage
-    if (!test.passage || test.passage.trim() === '') {
-        errors.push('Thiếu passage đọc hiểu');
+    // Validate two passages
+    if (!test.passage_reading_mcq || test.passage_reading_mcq.trim() === '') {
+        errors.push('Thiếu passage_reading_mcq');
+    }
+    if (!test.passage_true_false || test.passage_true_false.trim() === '') {
+        errors.push('Thiếu passage_true_false');
     }
 
-    // Validate rewrite questions (need 40)
+    // Validate multipleChoice (need 10)
+    const validMultipleChoice: MultipleChoiceQ[] = [];
+    if (!Array.isArray(test.multipleChoice)) {
+        errors.push('Thiếu mảng multipleChoice questions');
+    } else {
+        test.multipleChoice.forEach((q: any, i: number) => {
+            if (q && q.id && q.question && Array.isArray(q.options) && typeof q.correctAnswer === 'number' && q.explanation) {
+                validMultipleChoice.push(q);
+            } else {
+                errors.push(`Multiple Choice Q${i + 1} không hợp lệ`);
+            }
+        });
+        if (validMultipleChoice.length < 10) {
+            errors.push(`Chỉ có ${validMultipleChoice.length}/10 multiple choice questions hợp lệ`);
+        }
+    }
+
+    // Validate fillBlank (need 10)
+    const validFillBlank: FillInputQ[] = [];
+    if (!Array.isArray(test.fillBlank)) {
+        errors.push('Thiếu mảng fillBlank questions');
+    } else {
+        test.fillBlank.forEach((q: any, i: number) => {
+            if (q && q.id && q.question && q.correctAnswer && q.clueEmoji) {
+                validFillBlank.push(q);
+            } else {
+                errors.push(`Fill-blank Q${i + 1} không hợp lệ`);
+            }
+        });
+        if (validFillBlank.length < 10) {
+            errors.push(`Chỉ có ${validFillBlank.length}/10 fill-blank questions hợp lệ`);
+        }
+    }
+
+    // Validate scramble (need 10)
+    const validScramble: ScrambleQ[] = [];
+    if (!Array.isArray(test.scramble)) {
+        errors.push('Thiếu mảng scramble questions');
+    } else {
+        test.scramble.forEach((q: any, i: number) => {
+            if (q && q.id && Array.isArray(q.scrambled) && q.correctSentence && q.translation) {
+                validScramble.push(q);
+            } else {
+                errors.push(`Scramble Q${i + 1} không hợp lệ`);
+            }
+        });
+        if (validScramble.length < 10) {
+            errors.push(`Chỉ có ${validScramble.length}/10 scramble questions hợp lệ`);
+        }
+    }
+
+    // Validate rewrite questions (need 5)
     const validRewrites: RewriteQ[] = [];
     if (!Array.isArray(test.rewrite)) {
         errors.push('Thiếu mảng rewrite questions');
@@ -128,44 +195,62 @@ export function validateMegaTest50(test: any): ValidationResult {
                 errors.push(result.error!);
             }
         }
-        if (validRewrites.length < 40) {
-            errors.push(`Chỉ có ${validRewrites.length}/40 rewrite questions hợp lệ`);
+        if (validRewrites.length < 5) {
+            errors.push(`Chỉ có ${validRewrites.length}/5 rewrite questions hợp lệ`);
         }
     }
 
     // Validate reading MCQ (need 5)
     const validReadings: ReadingMCQ[] = [];
-    if (!Array.isArray(test.reading)) {
-        errors.push('Thiếu mảng reading questions');
+    if (!Array.isArray(test.readingMCQ)) {
+        errors.push('Thiếu mảng readingMCQ questions');
     } else {
-        for (let i = 0; i < test.reading.length; i++) {
-            const result = validateReadingMCQ(test.reading[i], i);
+        for (let i = 0; i < test.readingMCQ.length; i++) {
+            const result = validateReadingMCQ(test.readingMCQ[i], i);
             if (result.valid) {
-                validReadings.push(test.reading[i]);
+                validReadings.push(test.readingMCQ[i]);
             } else {
                 errors.push(result.error!);
             }
         }
         if (validReadings.length < 5) {
-            errors.push(`Chỉ có ${validReadings.length}/5 reading questions hợp lệ`);
+            errors.push(`Chỉ có ${validReadings.length}/5 reading MCQ questions hợp lệ`);
         }
     }
 
-    // Validate pronunciation MCQ (need 5)
-    const validPronunciations: PronunciationMCQ[] = [];
-    if (!Array.isArray(test.pronunciation)) {
-        errors.push('Thiếu mảng pronunciation questions');
+    // Validate true/false (need 5)
+    const validTrueFalse: TrueFalseQ[] = [];
+    if (!Array.isArray(test.trueFalse)) {
+        errors.push('Thiếu mảng trueFalse questions');
     } else {
-        for (let i = 0; i < test.pronunciation.length; i++) {
-            const result = validatePronunciationMCQ(test.pronunciation[i], i);
+        for (let i = 0; i < test.trueFalse.length; i++) {
+            const result = validateTrueFalseQ(test.trueFalse[i], i);
             if (result.valid) {
-                validPronunciations.push(test.pronunciation[i]);
+                validTrueFalse.push(test.trueFalse[i]);
             } else {
                 errors.push(result.error!);
             }
         }
-        if (validPronunciations.length < 5) {
-            errors.push(`Chỉ có ${validPronunciations.length}/5 pronunciation questions hợp lệ`);
+        if (validTrueFalse.length < 5) {
+            errors.push(`Chỉ có ${validTrueFalse.length}/5 true/false questions hợp lệ`);
+        }
+    }
+
+    // Validate fill-blank-box (need 5)
+    const validFillBlankBox: FillBlankBoxQ[] = [];
+    if (!Array.isArray(test.fillBlankBox)) {
+        errors.push('Thiếu mảng fillBlankBox questions');
+    } else {
+        for (let i = 0; i < test.fillBlankBox.length; i++) {
+            const result = validateFillBlankBoxQ(test.fillBlankBox[i], i);
+            if (result.valid) {
+                validFillBlankBox.push(test.fillBlankBox[i]);
+            } else {
+                errors.push(result.error!);
+            }
+        }
+        if (validFillBlankBox.length < 5) {
+            errors.push(`Chỉ có ${validFillBlankBox.length}/5 fill-blank-box questions hợp lệ`);
         }
     }
 
@@ -176,11 +261,17 @@ export function validateMegaTest50(test: any): ValidationResult {
         errors,
         filteredTest: isValid ? {
             level: test.level,
-            passage: test.passage,
-            passage_translation: test.passage_translation || '',
-            rewrite: validRewrites.slice(0, 40),
-            reading: validReadings.slice(0, 5),
-            pronunciation: validPronunciations.slice(0, 5)
+            passage_reading_mcq: test.passage_reading_mcq,
+            passage_reading_mcq_translation: test.passage_reading_mcq_translation || '',
+            passage_true_false: test.passage_true_false,
+            passage_true_false_translation: test.passage_true_false_translation || '',
+            multipleChoice: validMultipleChoice.slice(0, 10),
+            fillBlank: validFillBlank.slice(0, 10),
+            scramble: validScramble.slice(0, 10),
+            rewrite: validRewrites.slice(0, 5),
+            readingMCQ: validReadings.slice(0, 5),
+            trueFalse: validTrueFalse.slice(0, 5),
+            fillBlankBox: validFillBlankBox.slice(0, 5)
         } : null
     };
 }

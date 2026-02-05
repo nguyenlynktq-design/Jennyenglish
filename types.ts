@@ -56,22 +56,22 @@ export interface FillInputQ {
   clueEmoji: string;
 }
 
-// ===== NEW EXERCISE TYPES (50 TOTAL) =====
+// ===== NEW EXERCISE TYPES FOR 50-QUESTION MEGA CHALLENGE =====
 
-// 1. Sentence Rewriting (40 questions)
+// 1. Sentence Rewriting (5 questions)
 export interface RewriteQ {
   id: string;
   type: 'rewrite';
   original_sentence: string;
   instruction: string;
-  hint_sample: string;
+  hint_sample?: string; // Optional hint
   rewritten_correct: string;
   allowed_variants?: string[];
   explanation_vi: string;
   level: VocabularyLevel;
 }
 
-// 2. Reading Comprehension MCQ (5 questions)
+// 2. Reading Comprehension MCQ (5 questions based on passage 1)
 export interface ReadingMCQ {
   id: string;
   type: 'reading_mcq';
@@ -79,32 +79,45 @@ export interface ReadingMCQ {
   choices: [string, string, string]; // A, B, C
   correct_choice: 'A' | 'B' | 'C';
   explanation_vi: string;
-  level: VocabularyLevel;
 }
 
-// 3. Pronunciation Odd-One-Out (5 questions)
-export interface PronunciationMCQ {
+// 3. True/False Reading (5 questions based on passage 2)
+export interface TrueFalseQ {
   id: string;
-  type: 'pronunciation_mcq';
-  instruction: string;
-  choices: [
-    { word: string; underlined: string },
-    { word: string; underlined: string },
-    { word: string; underlined: string }
-  ];
-  correct_choice: 'A' | 'B' | 'C';
+  type: 'true_false';
+  statement: string;
+  correct_answer: boolean; // true or false
   explanation_vi: string;
-  level: VocabularyLevel;
 }
 
-// Combined 50-question test
+// 4. Fill-blank with Word Box (5 questions)
+export interface FillBlankBoxQ {
+  id: string;
+  type: 'fill_blank_box';
+  sentence: string; // Sentence with ____ blank
+  word_box: string[]; // 6-8 words to choose from
+  correct_answer: string;
+  explanation_vi: string;
+}
+
+// Combined 50-question test structure
 export interface MegaTest50 {
   level: VocabularyLevel;
-  passage: string;
-  passage_translation: string;
-  rewrite: RewriteQ[];        // 40 questions
-  reading: ReadingMCQ[];      // 5 questions  
-  pronunciation: PronunciationMCQ[]; // 5 questions
+
+  // Reading passages (2 passages)
+  passage_reading_mcq: string; // For Reading MCQ
+  passage_reading_mcq_translation: string;
+  passage_true_false: string; // For True/False
+  passage_true_false_translation: string;
+
+  // Exercise types (50 total)
+  multipleChoice: MultipleChoiceQ[]; // 10 questions
+  fillBlank: FillInputQ[];           // 10 questions
+  scramble: ScrambleQ[];             // 10 questions
+  rewrite: RewriteQ[];               // 5 questions
+  readingMCQ: ReadingMCQ[];          // 5 questions  
+  trueFalse: TrueFalseQ[];           // 5 questions
+  fillBlankBox: FillBlankBoxQ[];     // 5 questions
 }
 
 export interface MatchingPair {

@@ -296,110 +296,181 @@ export const generateLessonPlan = async (topicInput?: string, textInput?: string
   const ai = getAI();
   const imageParts = images.map(data => ({ inlineData: { data, mimeType: 'image/jpeg' } }));
 
-  // Get fixed passage for the selected level
-  const fixedPassage = FIXED_PASSAGES[level];
+  // Get fixed passages for the selected level
+  const fixedPassages = FIXED_PASSAGES[level];
 
   const prompt = `MRS. DUNG AI - EXPERT PEDAGOGY MODE (CHUYÊN GIA TIẾNG ANH).
-  TASK: Analyze the provided content and create a 50-QUESTION MEGATEST.
+  TASK: Analyze the provided content and create a comprehensive 50-QUESTION MEGA CHALLENGE.
   
   ===== 📚 VOCABULARY LEVEL: ${level} =====
   
   🚨 CRITICAL: TEST STRUCTURE (EXACTLY 50 QUESTIONS) 🚨
-  1. Sentence Rewriting: 40 questions - "Viết lại câu sao cho nghĩa không đổi"
-  2. Reading Comprehension: 5 questions - Based on fixed passage
-  3. Pronunciation Odd-One-Out: 5 questions - "Chọn từ có phần gạch chân phát âm khác"
-
-  ===== 📝 FIXED READING PASSAGE FOR LEVEL ${level} =====
-  Use this passage for the 5 Reading Comprehension questions:
   
-  Title: "${fixedPassage.title}"
-  "${fixedPassage.passage}"
-  Translation: "${fixedPassage.translation}"
+  1. Multiple Choice Quiz: 10 questions (4 options A/B/C/D)
+  2. Fill-in-the-blank: 10 questions (single word answer)
+  3. Scramble Sentences: 10 questions (rearrange words)
+  4. Sentence Rewriting: 5 questions (rewrite with same meaning + hint)
+  5. Reading MCQ: 5 questions (A/B/C choices based on Passage 1)
+  6. True/False Reading: 5 questions (based on Passage 2)
+  7. Fill-blank Word Box: 5 questions (choose from word box)
+  
+  TOTAL: 10 + 10 + 10 + 5 + 5 + 5 + 5 = 50 questions
+  
+  ===== 📖 FIXED READING PASSAGES FOR LEVEL ${level} =====
+  
+  **PASSAGE 1 (for Reading MCQ):**
+  Title: "${fixedPassages.readingMCQ.title}"
+  "${fixedPassages.readingMCQ.passage}"
+  Translation: "${fixedPassages.readingMCQ.translation}"
+  
+  **PASSAGE 2 (for True/False):**
+  Title: "${fixedPassages.trueFalse.title}"
+  "${fixedPassages.trueFalse.passage}"
+  Translation: "${fixedPassages.trueFalse.translation}"
   
   ===== 📝 EXERCISE SPECIFICATIONS =====
   
-  Extract vocabulary and grammar from source for REWRITE questions.
+  Extract vocabulary and grammar from source material for exercises 1-4.
   
-  1️⃣ SENTENCE REWRITING (40 questions) - "Viết lại câu sao cho nghĩa không đổi"
+  1️⃣ MULTIPLE CHOICE QUIZ (10 questions)
   Each question must include:
-  - id: "rewrite_1" to "rewrite_40"
+  - id: "mc_1" to "mc_10"
+  - question: Sentence with ONE blank "____"
+  - options: Array of exactly 4 strings for A/B/C/D
+  - correctAnswer: Index 0-3 (0=A, 1=B, 2=C, 3=D)
+  - explanation: Vietnamese explanation
+  
+  QUIZ RULES:
+  ✓ Use vocabulary/grammar from source
+  ✓ Only ONE correct answer
+  ✓ Wrong options must be plausible
+  ✓ Level-appropriate difficulty (${level})
+  
+  2️⃣ FILL-IN-THE-BLANK (10 questions)
+  Each question must include:
+  - id: "fill_1" to "fill_10"
+  - question: Sentence with ONE blank "____"
+  - correctAnswer: EXACTLY ONE WORD (not a phrase)
+  - clueEmoji: Relevant emoji hint (e.g., "🏠" for house)
+  
+  FILL RULES:
+  ✓ Answer must be a single word only
+  ✓ Sentence must be grammatically complete with answer
+  ✓ Only ONE possible correct answer
+  ✓ Use source vocabulary
+  
+  3️⃣ SCRAMBLE SENTENCES (10 questions)
+  Each question must include:
+  - id: "scramble_1" to "scramble_10"
+  - scrambled: Array of shuffled words INCLUDING punctuation
+  - correctSentence: The correct ordered sentence
+  - translation: Vietnamese translation
+  
+  SCRAMBLE RULES (CRITICAL):
+  ✓ scrambled must contain EXACT words from correctSentence
+  ✓ Include punctuation as separate items (e.g., ".", "?", "!")
+  ✓ No extra words, no missing words, no changed words
+  ✓ Verify word count matches
+  
+  4️⃣ SENTENCE REWRITING (5 questions)
+  Each question must include:
+  - id: "rewrite_1" to "rewrite_5"
   - type: "rewrite"
-  - original_sentence: The original English sentence
-  - instruction: "Rewrite the sentence so that it means the same."
-  - hint_sample: A helpful hint (e.g., "Start with: There is..." or "Use: because")
-  - rewritten_correct: The correct rewritten sentence
-  - allowed_variants: Array of acceptable alternative answers (optional)
-  - explanation_vi: Vietnamese explanation of why the rewrite works
-  - level: "${level}"
-  
-  REWRITE RULES:
-  ✓ Use vocabulary and grammar from the input source
-  ✓ Meaning must remain IDENTICAL (paraphrase only)
-  ✓ Grammar must be 100% correct in both sentences
-  ✓ Hint must be helpful but NOT reveal the full answer
-  ✓ Use ${level}-appropriate structures
-  
-  2️⃣ READING COMPREHENSION (5 questions) - Based on fixed passage above
-  Each question must include:
-  - id: "reading_1" to "reading_5"
-  - type: "reading_mcq"
-  - question_text: Question about the passage
-  - choices: Array of exactly 3 strings ["Answer A", "Answer B", "Answer C"]
-  - correct_choice: "A" or "B" or "C"
+  - original_sentence: Original English sentence
+  - instruction: "Viết lại câu sao cho nghĩa không đổi"
+  - hint_sample: Helpful starter (e.g., "Begin with: There is..." or "Use: because") - OPTIONAL
+  - rewritten_correct: Model correct answer
+  - allowed_variants: Array of acceptable variations (optional)
   - explanation_vi: Vietnamese explanation
   - level: "${level}"
   
-  READING RULES:
-  ✓ Questions must be answerable ONLY from the passage text
-  ✓ Mix of factual, inference, and vocabulary questions
-  ✓ Distribute correct answers across A, B, C (not all the same)
-  ✓ Wrong choices must be plausible (not obviously wrong)
+  REWRITE RULES:
+  ✓ Meaning must be IDENTICAL
+  ✓ Grammar 100% correct in both sentences
+  ✓ Hint helpful but not the full answer
+  ✓ Use ${level}-appropriate structures
   
-  3️⃣ PRONUNCIATION ODD-ONE-OUT (5 questions) - "Chọn từ có phần gạch chân phát âm khác"
+  5️⃣ READING COMPREHENSION MCQ (5 questions - based on Passage 1)
   Each question must include:
-  - id: "pron_1" to "pron_5"
-  - type: "pronunciation_mcq"
-  - instruction: "Choose the word with a different sound."
-  - choices: Array of 3 objects [{word, underlined}] where underlined part differs in pronunciation
-  - correct_choice: "A" or "B" or "C" - the word with different pronunciation
-  - explanation_vi: Vietnamese explanation of phonetic difference
-  - level: "${level}"
+  - id: "reading_1" to "reading_5"
+  - type: "reading_mcq"
+  - question_text: Question about Passage 1
+  - choices: Array of exactly 3 strings ["A", "B", "C"]
+  - correct_choice: "A" or "B" or "C"
+  - explanation_vi: Vietnamese explanation
   
-  PRONUNCIATION EXAMPLES:
-  - /e/ vs /iː/: head (̱e̱a = /e/) vs read (̱e̱a = /iː/)
-  - /ʊ/ vs /uː/: good (̱o̱o = /ʊ/) vs food (̱o̱o = /uː/)
-  - /s/ vs /z/: books (̱s̱ = /s/) vs dogs (̱s̱ = /z/)
-  - /t/ vs /d/ vs /ɪd/: walked (̱eḏ = /t/) vs played (̱eḏ = /d/) vs wanted (̱eḏ = /ɪd/)
+  READING MCQ RULES:
+  ✓ Must be answerable ONLY from Passage 1
+  ✓ Mix factual, inference, vocabulary questions
+  ✓ Distribute correct answers (not all A/B/C)
+  ✓ Wrong choices must be plausible
   
-  PRONUNCIATION RULES:
-  ✓ The underlined grapheme MUST exist in each word
-  ✓ Exactly 1 word has different pronunciation
-  ✓ Explanation must state which sounds differ (IPA)
+  6️⃣ TRUE/FALSE READING (5 questions - based on Passage 2)
+  Each question must include:
+  - id: "tf_1" to "tf_5"
+  - type: "true_false"
+  - statement: Statement about Passage 2
+  - correct_answer: true or false (boolean)
+  - explanation_vi: Vietnamese explanation of why true/false
   
-  ===== ✅ MEGTEST OUTPUT FORMAT =====
+  TRUE/FALSE RULES:
+  ✓ Must be answerable from Passage 2 only
+  ✓ Clear true or false (not ambiguous)
+  ✓ Mix of true and false answers (not all true/false)
+  ✓ Test comprehension, not trick questions
   
-  The megaTest object MUST include:
+  7️⃣ FILL-BLANK WORD BOX (5 questions)
+  Each question must include:
+  - id: "fillbox_1" to "fillbox_5"
+  - type: "fill_blank_box"
+  - sentence: Sentence with ONE blank "____"
+  - word_box: Array of 6-8 words (1 correct + 5-7 distractors)
+  - correct_answer: The correct word (must be in word_box)
+  - explanation_vi: Vietnamese explanation
+  
+  FILL-BOX RULES:
+  ✓ word_box must include the correct answer
+  ✓ Distractors should be same word type (all verbs, all nouns, etc.)
+  ✓ Only ONE word makes the sentence grammatically correct
+  ✓ Use ${level}-appropriate vocabulary
+  
+  ===== ✅ MEGATEST OUTPUT FORMAT =====
+  
+  The practice.megaTest object MUST match this structure:
   {
     "level": "${level}",
-    "passage": "${fixedPassage.passage}",
-    "passage_translation": "${fixedPassage.translation}",
-    "rewrite": [... 40 RewriteQ objects ...],
-    "reading": [... 5 ReadingMCQ objects ...],
-    "pronunciation": [... 5 PronunciationMCQ objects ...]
+    "passage_reading_mcq": "${fixedPassages.readingMCQ.passage}",
+    "passage_reading_mcq_translation": "${fixedPassages.readingMCQ.translation}",
+    "passage_true_false": "${fixedPassages.trueFalse.passage}",
+    "passage_true_false_translation": "${fixedPassages.trueFalse.translation}",
+    "multipleChoice": [... 10 MC objects ...],
+    "fillBlank": [... 10 Fill objects ...],
+    "scramble": [... 10 Scramble objects ...],
+    "rewrite": [... 5 Rewrite objects ...],
+    "readingMCQ": [... 5 Reading MCQ objects ...],
+    "trueFalse": [... 5 True/False objects ...],
+    "fillBlankBox": [... 5 Fill-box objects ...]
   }
   
   ===== VOCABULARY & GRAMMAR =====
   
-  Extract ALL vocabulary from source exactly as provided.
-  Grammar explanation must be in Vietnamese.
+  Extract ALL vocabulary from source material exactly as provided.
+  Grammar explanations must be in Vietnamese.
+  Create exercises using the source vocabulary and grammar.
   
-  ===== FINAL VALIDATION =====
+  ===== FINAL VALIDATION CHECKLIST =====
+  
   Before output, verify:
-  ☐ Exactly 40 rewrite questions with valid hint_sample
-  ☐ Exactly 5 reading questions based on fixed passage
-  ☐ Exactly 5 pronunciation questions with underlined graphemes
+  ☐ Exactly 10 multiple choice questions
+  ☐ Exactly 10 fill-blank questions
+  ☐ Exactly 10 scramble questions (scrambled words match correctSentence)
+  ☐ Exactly 5 rewrite questions with level-appropriate hints
+  ☐ Exactly 5 reading MCQ based on Passage 1
+  ☐ Exactly 5 true/false based on Passage 2
+  ☐ Exactly 5 fill-box questions with word_box arrays
   ☐ All grammar is 100% correct
   ☐ All explanations are in Vietnamese
+  ☐ Total: 50 questions
   
   OUTPUT: Return valid JSON matching the schema.
   Do NOT include any text outside the JSON.`;
