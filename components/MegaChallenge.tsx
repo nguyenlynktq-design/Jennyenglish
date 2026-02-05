@@ -1,226 +1,418 @@
-
 import React, { useState, useEffect } from 'react';
-import { MegaTest50, RewriteQ, ReadingMCQ, PronunciationMCQ, VocabularyLevel } from '../types';
+import { MegaTest50, MultipleChoiceQ, FillInputQ, ScrambleQ, RewriteQ, ReadingMCQ, TrueFalseQ, FillBlankBoxQ } from '../types';
 import { calculateScore, isRewriteCorrect, validateMegaTest50 } from '../utils/exerciseValidator';
 
 interface MegaChallengeProps {
   megaData: MegaTest50;
-  onScoresUpdate?: (scores: { total: number; rewrite: number; reading: number; pronunciation: number }) => void;
+  onScoresUpdate?: (scores: { total: number }) => void;
 }
 
+type ZoneId = 'quiz' | 'fill' | 'scramble' | 'rewrite' | 'reading' | 'truefalse' | 'fillbox';
+
+interface ZoneInfo {
+  id: ZoneId;
+  label: string;
+  icon: string;
+  count: number;
+}
+
+const ZONES: ZoneInfo[] = [
+  { id: 'quiz', label: 'Quiz', icon: '📝', count: 10 },
+  { id: 'fill', label: 'Điền từ', icon: '✏️', count: 10 },
+  { id: 'scramble', label: 'Sắp xếp', icon: '🧩', count: 10 },
+  { id: 'rewrite', label: 'Viết lại', icon: '📄', count: 5 },
+  { id: 'reading', label: 'Đọc hiểu', icon: '📖', count: 5 },
+  { id: 'truefalse', label: 'True/False', icon: '✓✗', count: 5 },
+  { id: 'fillbox', label: 'Điền khung', icon: '📦', count: 5 },
+];
+
 export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScoresUpdate }) => {
-  const [activeZone, setActiveZone] = useState<'rewrite' | 'reading' | 'pronunciation'>('rewrite');
+  const [activeZone, setActiveZone] = useState<ZoneId>('quiz');
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
-  const [validationResult, setValidationResult] = useState<{ valid: boolean; errors: string[] } | null>(null);
+  const [scrambleSelections, setScrambleSelections] = useState<Record<string, string[]>>({});
 
-  // Validate on mount
-  useEffect(() => {
-    if (megaData) {
-      const result = validateMegaTest50(megaData);
-      setValidationResult({ valid: result.valid, errors: result.errors });
-    }
-  }, [megaData]);
+  // Validate data
+  const validation = validateMegaTest50(megaData);
 
-  const handleAnswer = (qId: string, val: any) => {
-    if (submitted[qId]) return;
-    setAnswers(prev => ({ ...prev, [qId]: val }));
-  };
-
-  const checkFinal = (qId: string) => {
-    setSubmitted(prev => ({ ...prev, [qId]: true }));
-  };
-
-  // Calculate scores for each section
-  const calculateZoneScore = (zone: string): number => {
-    let correct = 0;
-    if (!megaData) return 0;
-
-    if (zone === 'rewrite') {
-      (megaData.rewrite || []).forEach(q => {
-        if (submitted[q.id]) {
-          const isCorrect = isRewriteCorrect(
-            answers[q.id] || '',
-            q.rewritten_correct,
-            q.allowed_variants
-          );
-          if (isCorrect) correct++;
-        }
-      });
-    } else if (zone === 'reading') {
-      (megaData.reading || []).forEach(q => {
-        if (submitted[q.id] && answers[q.id] === q.correct_choice) {
-          correct++;
-        }
-      });
-    } else if (zone === 'pronunciation') {
-      (megaData.pronunciation || []).forEach(q => {
-        if (submitted[q.id] && answers[q.id] === q.correct_choice) {
-          correct++;
-        }
-      });
-    }
-    return correct;
-  };
-
-  // Update parent with scores
-  useEffect(() => {
-    if (onScoresUpdate) {
-      const rewrite = calculateZoneScore('rewrite');
-      const reading = calculateZoneScore('reading');
-      const pronunciation = calculateZoneScore('pronunciation');
-      const total = rewrite + reading + pronunciation;
-      onScoresUpdate({ total, rewrite, reading, pronunciation });
-    }
-  }, [submitted, megaData]);
-
-  // Calculate total score for display
-  const getTotalCorrect = () => {
-    return calculateZoneScore('rewrite') + calculateZoneScore('reading') + calculateZoneScore('pronunciation');
-  };
-
-  const getTotalSubmitted = () => {
-    return Object.keys(submitted).filter(k => submitted[k]).length;
-  };
-
-  // Check if test is complete
-  const isTestComplete = () => {
-    const rewriteCount = megaData?.rewrite?.length || 0;
-    const readingCount = megaData?.reading?.length || 0;
-    const pronCount = megaData?.pronunciation?.length || 0;
-    return getTotalSubmitted() >= (rewriteCount + readingCount + pronCount);
-  };
-
-  // Validation error display
-  if (validationResult && !validationResult.valid) {
+  if (!validation.valid) {
     return (
-      <div className="bg-red-50 rounded-3xl p-8 border-2 border-red-200">
-        <h2 className="text-xl font-black text-red-700 mb-4">⚠️ Lỗi Dữ Liệu Bài Kiểm Tra</h2>
-        <p className="text-red-600 mb-4">Bài kiểm tra không hợp lệ và không thể hiển thị:</p>
-        <ul className="list-disc list-inside space-y-2">
-          {validationResult.errors.slice(0, 5).map((err, i) => (
-            <li key={i} className="text-red-600 text-sm">{err}</li>
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 m-4">
+        <h3 className="text-red-700 font-bold text-lg mb-3">⚠️ Lỗi Dữ Liệu Bài Kiểm Tra</h3>
+        <p className="text-red-600 mb-3">Bài kiểm tra không hợp lệ và không thể hiển thị:</p>
+        <ul className="list-disc pl-6 text-red-600 text-sm">
+          {validation.errors.slice(0, 5).map((err, i) => (
+            <li key={i}>{err}</li>
           ))}
-          {validationResult.errors.length > 5 && (
-            <li className="text-red-500 text-sm italic">...và {validationResult.errors.length - 5} lỗi khác</li>
+          {validation.errors.length > 5 && (
+            <li>...và {validation.errors.length - 5} lỗi khác</li>
           )}
         </ul>
       </div>
     );
   }
 
-  if (!megaData) return null;
+  const data = validation.filteredTest!;
 
-  const { score, correctText } = calculateScore(getTotalCorrect());
+  // Calculate score for a zone
+  const calculateZoneScore = (zone: ZoneId): { correct: number; total: number } => {
+    let correct = 0;
+    let total = 0;
+
+    switch (zone) {
+      case 'quiz':
+        total = data.multipleChoice?.length || 0;
+        data.multipleChoice?.forEach((q) => {
+          if (submitted[q.id] && answers[q.id] === q.correctAnswer) correct++;
+        });
+        break;
+      case 'fill':
+        total = data.fillBlank?.length || 0;
+        data.fillBlank?.forEach((q) => {
+          if (submitted[q.id] && answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()) correct++;
+        });
+        break;
+      case 'scramble':
+        total = data.scramble?.length || 0;
+        data.scramble?.forEach((q) => {
+          if (submitted[q.id]) {
+            const userSentence = (scrambleSelections[q.id] || []).join(' ');
+            if (userSentence.toLowerCase().replace(/\s+/g, ' ').trim() ===
+              q.correctSentence.toLowerCase().replace(/\s+/g, ' ').trim()) correct++;
+          }
+        });
+        break;
+      case 'rewrite':
+        total = data.rewrite?.length || 0;
+        data.rewrite?.forEach((q) => {
+          if (submitted[q.id] && isRewriteCorrect(answers[q.id] || '', q.rewritten_correct, q.allowed_variants)) correct++;
+        });
+        break;
+      case 'reading':
+        total = data.readingMCQ?.length || 0;
+        data.readingMCQ?.forEach((q) => {
+          if (submitted[q.id] && answers[q.id] === q.correct_choice) correct++;
+        });
+        break;
+      case 'truefalse':
+        total = data.trueFalse?.length || 0;
+        data.trueFalse?.forEach((q) => {
+          if (submitted[q.id] && answers[q.id] === q.correct_answer) correct++;
+        });
+        break;
+      case 'fillbox':
+        total = data.fillBlankBox?.length || 0;
+        data.fillBlankBox?.forEach((q) => {
+          if (submitted[q.id] && answers[q.id] === q.correct_answer) correct++;
+        });
+        break;
+    }
+
+    return { correct, total };
+  };
+
+  // Get total correct
+  const getTotalCorrect = (): number => {
+    return ZONES.reduce((sum, zone) => sum + calculateZoneScore(zone.id).correct, 0);
+  };
+
+  // Get submitted count for zone
+  const getZoneSubmitted = (zone: ZoneId): number => {
+    let count = 0;
+    switch (zone) {
+      case 'quiz': data.multipleChoice?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'fill': data.fillBlank?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'scramble': data.scramble?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'rewrite': data.rewrite?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'reading': data.readingMCQ?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'truefalse': data.trueFalse?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'fillbox': data.fillBlankBox?.forEach(q => { if (submitted[q.id]) count++; }); break;
+    }
+    return count;
+  };
+
+  // Handle answer
+  const handleAnswer = (qId: string, value: any) => {
+    setAnswers(prev => ({ ...prev, [qId]: value }));
+  };
+
+  // Submit answer
+  const handleSubmit = (qId: string) => {
+    setSubmitted(prev => ({ ...prev, [qId]: true }));
+  };
+
+  // Scramble: click word to add to selection
+  const handleScrambleWordClick = (qId: string, word: string, fromSelected: boolean) => {
+    setScrambleSelections(prev => {
+      const current = prev[qId] || [];
+      if (fromSelected) {
+        // Remove from selection
+        const idx = current.lastIndexOf(word);
+        if (idx !== -1) {
+          const newArr = [...current];
+          newArr.splice(idx, 1);
+          return { ...prev, [qId]: newArr };
+        }
+      } else {
+        // Add to selection
+        return { ...prev, [qId]: [...current, word] };
+      }
+      return prev;
+    });
+  };
+
+  // Calculate scores
+  const totalCorrect = getTotalCorrect();
+  const { score, correctText } = calculateScore(totalCorrect, 50);
+
+  // Update parent
+  useEffect(() => {
+    onScoresUpdate?.({ total: totalCorrect });
+  }, [totalCorrect, onScoresUpdate]);
 
   return (
-    <div className="bg-brand-900 rounded-[3rem] shadow-xl border-[8px] border-brand-800 overflow-hidden mb-12 font-sans">
-      {/* Header with Score Display */}
-      <div className="bg-brand-800 p-6 text-center border-b-2 border-brand-700">
-        <h2 className="text-xl md:text-2xl font-black text-white uppercase italic mb-2 tracking-tighter">
-          🚀 MEGA CHALLENGE - 50 CÂU HỎI 🚀
+    <div className="bg-gradient-to-br from-green-900 via-emerald-800 to-teal-900 rounded-2xl p-4 md:p-6">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h2 className="text-2xl md:text-3xl font-bold text-white flex items-center justify-center gap-2">
+          🚀 MEGA CHALLENGE - 50 CÂU 🚀
         </h2>
-        <p className="text-brand-200 text-sm mb-4">Cấp độ: {megaData.level}</p>
+        <p className="text-emerald-200 mt-1">Cấp độ: {data.level}</p>
+      </div>
 
-        {/* Score Display */}
-        <div className="flex justify-center gap-6 mb-4">
-          <div className="bg-white/10 rounded-2xl px-6 py-3">
-            <p className="text-brand-200 text-xs uppercase tracking-wider">Điểm</p>
-            <p className="text-3xl font-black text-highlight-400">{score}/10,0</p>
-          </div>
-          <div className="bg-white/10 rounded-2xl px-6 py-3">
-            <p className="text-brand-200 text-xs uppercase tracking-wider">Đúng</p>
-            <p className="text-3xl font-black text-green-400">{correctText}</p>
-          </div>
+      {/* Score Display */}
+      <div className="flex justify-center gap-6 mb-6">
+        <div className="bg-white/10 backdrop-blur rounded-xl px-6 py-3 text-center">
+          <div className="text-sm text-emerald-200">ĐIỂM</div>
+          <div className="text-2xl font-bold text-yellow-400">{score}/10,0</div>
         </div>
+        <div className="bg-white/10 backdrop-blur rounded-xl px-6 py-3 text-center">
+          <div className="text-sm text-emerald-200">ĐÚNG</div>
+          <div className="text-2xl font-bold text-green-400">{correctText}</div>
+        </div>
+      </div>
 
-        {/* Zone Navigation */}
-        <div className="flex flex-wrap justify-center gap-2">
-          {[
-            { id: 'rewrite', label: '40 Viết lại câu', icon: '✏️', count: megaData.rewrite?.length || 0 },
-            { id: 'reading', label: '5 Đọc hiểu', icon: '📖', count: megaData.reading?.length || 0 },
-            { id: 'pronunciation', label: '5 Phát âm', icon: '🔊', count: megaData.pronunciation?.length || 0 },
-          ].map(z => (
+      {/* Zone Navigation */}
+      <div className="flex flex-wrap justify-center gap-2 mb-6">
+        {ZONES.map((zone) => {
+          const submittedCount = getZoneSubmitted(zone.id);
+          const isActive = activeZone === zone.id;
+          const { correct, total } = calculateZoneScore(zone.id);
+
+          return (
             <button
-              key={z.id}
-              onClick={() => setActiveZone(z.id as any)}
-              className={`px-4 py-3 rounded-xl font-black text-sm flex items-center gap-2 transition-all ${activeZone === z.id
-                  ? 'bg-highlight-400 text-brand-900 scale-105 shadow-lg ring-2 ring-white/20'
-                  : 'bg-brand-700 text-brand-200 hover:bg-brand-600'
+              key={zone.id}
+              onClick={() => setActiveZone(zone.id)}
+              className={`px-4 py-2 rounded-xl font-semibold transition-all flex items-center gap-2 ${isActive
+                  ? 'bg-yellow-400 text-green-900 scale-105 shadow-lg'
+                  : 'bg-white/20 text-white hover:bg-white/30'
                 }`}
             >
-              <span className="text-xl">{z.icon}</span> {z.label}
-              <span className="bg-white/20 px-2 py-0.5 rounded-lg text-xs">
-                {calculateZoneScore(z.id)}/{z.count}
+              <span>{zone.icon}</span>
+              <span className="hidden sm:inline">{zone.count}</span>
+              <span>{zone.label}</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${submittedCount === total ? 'bg-green-500 text-white' : 'bg-white/30'
+                }`}>
+                {correct}/{total}
               </span>
             </button>
-          ))}
-        </div>
+          );
+        })}
       </div>
 
-      <div className="p-6 md:p-8 bg-white/5">
-        {/* ===== REWRITE SECTION (40 Questions) ===== */}
-        {activeZone === 'rewrite' && (
-          <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
-            {(megaData.rewrite || []).map((q, idx) => {
-              const userAnswer = answers[q.id] || '';
-              const isCorrect = isRewriteCorrect(userAnswer, q.rewritten_correct, q.allowed_variants);
+      {/* Content Area */}
+      <div className="bg-white rounded-xl p-4 md:p-6 min-h-[400px]">
+        {/* Quiz Section */}
+        {activeZone === 'quiz' && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">📝 Multiple Choice Quiz (10 câu)</h3>
+            {data.multipleChoice?.map((q, idx) => (
+              <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                <p className="font-semibold mb-3">Câu {idx + 1}: {q.question}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {q.options.map((opt, optIdx) => (
+                    <button
+                      key={optIdx}
+                      onClick={() => { handleAnswer(q.id, optIdx); handleSubmit(q.id); }}
+                      disabled={submitted[q.id]}
+                      className={`p-3 rounded-lg text-left transition-all border ${submitted[q.id]
+                          ? optIdx === q.correctAnswer
+                            ? 'bg-green-100 border-green-500 text-green-800'
+                            : answers[q.id] === optIdx
+                              ? 'bg-red-100 border-red-500 text-red-800'
+                              : 'bg-gray-100 border-gray-300'
+                          : answers[q.id] === optIdx
+                            ? 'bg-blue-100 border-blue-500'
+                            : 'bg-white border-gray-300 hover:border-blue-400'
+                        }`}
+                    >
+                      <span className="font-bold mr-2">{['A', 'B', 'C', 'D'][optIdx]}.</span>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                {submitted[q.id] && (
+                  <p className={`mt-3 text-sm ${answers[q.id] === q.correctAnswer ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[q.id] === q.correctAnswer ? '✓ Đúng!' : `✗ Sai! Đáp án đúng: ${['A', 'B', 'C', 'D'][q.correctAnswer]}`}
+                    <span className="block text-gray-600 mt-1">{q.explanation}</span>
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Fill-blank Section */}
+        {activeZone === 'fill' && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">✏️ Fill in the Blank (10 câu)</h3>
+            {data.fillBlank?.map((q, idx) => (
+              <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                <p className="font-semibold mb-3">
+                  <span className="mr-2">{q.clueEmoji}</span>
+                  Câu {idx + 1}: {q.question}
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={answers[q.id] || ''}
+                    onChange={(e) => handleAnswer(q.id, e.target.value)}
+                    disabled={submitted[q.id]}
+                    placeholder="Nhập từ..."
+                    className="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  {!submitted[q.id] && (
+                    <button
+                      onClick={() => handleSubmit(q.id)}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Check
+                    </button>
+                  )}
+                </div>
+                {submitted[q.id] && (
+                  <p className={`mt-3 text-sm ${answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()
+                      ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                    {answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()
+                      ? '✓ Đúng!'
+                      : `✗ Sai! Đáp án đúng: ${q.correctAnswer}`}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Scramble Section */}
+        {activeZone === 'scramble' && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">🧩 Sắp Xếp Câu (10 câu)</h3>
+            {data.scramble?.map((q, idx) => {
+              const selected = scrambleSelections[q.id] || [];
+              const available = [...q.scrambled];
+              selected.forEach(word => {
+                const i = available.indexOf(word);
+                if (i !== -1) available.splice(i, 1);
+              });
+              const userSentence = selected.join(' ');
+              const isCorrect = userSentence.toLowerCase().replace(/\s+/g, ' ').trim() ===
+                q.correctSentence.toLowerCase().replace(/\s+/g, ' ').trim();
 
               return (
-                <div key={q.id} className="bg-white p-6 rounded-[2rem] shadow-lg border-b-4 border-slate-100">
-                  <div className="flex items-start gap-4 mb-4">
-                    <span className="bg-brand-100 text-brand-600 px-3 py-1 rounded-lg font-black text-sm shrink-0">
-                      {idx + 1}/{megaData.rewrite?.length || 40}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-2">
-                        Viết lại câu sao cho nghĩa không đổi:
-                      </p>
-                      <p className="text-xl font-black text-slate-800 leading-relaxed">
-                        "{q.original_sentence}"
-                      </p>
-                      <p className="mt-2 text-sm text-brand-600 font-semibold bg-brand-50 px-3 py-2 rounded-lg inline-block">
-                        💡 {q.hint_sample}
-                      </p>
-                    </div>
+                <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                  <p className="font-semibold mb-3">Câu {idx + 1}: {q.translation}</p>
+
+                  {/* Selected words (click to remove) */}
+                  <div className="min-h-[60px] p-3 border-2 border-dashed border-blue-300 rounded-lg mb-3 bg-blue-50">
+                    {selected.length === 0 ? (
+                      <span className="text-gray-400">Bấm vào các từ bên dưới để sắp xếp...</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {selected.map((word, i) => (
+                          <button
+                            key={i}
+                            onClick={() => !submitted[q.id] && handleScrambleWordClick(q.id, word, true)}
+                            disabled={submitted[q.id]}
+                            className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                          >
+                            {word}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  <textarea
-                    disabled={submitted[q.id]}
-                    value={userAnswer}
-                    onChange={(e) => handleAnswer(q.id, e.target.value)}
-                    placeholder="Viết câu trả lời của bạn..."
-                    rows={2}
-                    className={`w-full p-4 text-lg rounded-xl border-2 font-semibold outline-none transition-all resize-none ${submitted[q.id]
-                        ? isCorrect
-                          ? 'bg-green-50 border-green-500 text-green-700'
-                          : 'bg-red-50 border-red-500 text-red-700'
-                        : 'bg-slate-50 border-slate-200 focus:border-brand-500'
-                      }`}
-                  />
+                  {/* Available words (click to add) */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {available.map((word, i) => (
+                      <button
+                        key={i}
+                        onClick={() => !submitted[q.id] && handleScrambleWordClick(q.id, word, false)}
+                        disabled={submitted[q.id]}
+                        className="px-3 py-1 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                      >
+                        {word}
+                      </button>
+                    ))}
+                  </div>
 
-                  {!submitted[q.id] ? (
+                  {!submitted[q.id] && (
                     <button
-                      onClick={() => checkFinal(q.id)}
-                      disabled={!userAnswer.trim()}
-                      className="w-full mt-3 py-3 bg-brand-600 text-white rounded-xl font-black text-lg shadow-md uppercase disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => handleSubmit(q.id)}
+                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                     >
-                      Kiểm tra 🚀
+                      Kiểm tra
                     </button>
-                  ) : (
-                    <div className={`mt-4 p-4 rounded-2xl border-l-4 ${isCorrect ? 'bg-green-50 border-green-500' : 'bg-amber-50 border-amber-500'}`}>
-                      <div className="flex items-start gap-3">
-                        <span className="text-3xl">{isCorrect ? '🌟' : '💡'}</span>
-                        <div>
-                          <p className="font-black text-sm mb-1 text-slate-800">
-                            {isCorrect ? 'Tuyệt vời! Câu trả lời chính xác!' : 'Chưa đúng! Đáp án đúng là:'}
-                          </p>
-                          {!isCorrect && (
-                            <p className="text-green-700 font-semibold mb-2">✓ {q.rewritten_correct}</p>
-                          )}
-                          <p className="text-xs italic text-slate-600 leading-relaxed">{q.explanation_vi}</p>
-                        </div>
-                      </div>
+                  )}
+
+                  {submitted[q.id] && (
+                    <p className={`mt-3 text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                      {isCorrect ? '✓ Đúng!' : `✗ Sai! Đáp án đúng: ${q.correctSentence}`}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Rewrite Section */}
+        {activeZone === 'rewrite' && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">📄 Viết Lại Câu (5 câu)</h3>
+            {data.rewrite?.map((q, idx) => {
+              const isCorrect = submitted[q.id] && isRewriteCorrect(answers[q.id] || '', q.rewritten_correct, q.allowed_variants);
+
+              return (
+                <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                  <p className="font-semibold mb-2">Câu {idx + 1}:</p>
+                  <p className="mb-2 text-gray-800 italic">"{q.original_sentence}"</p>
+                  <p className="text-sm text-gray-600 mb-2">{q.instruction}</p>
+                  {q.hint_sample && (
+                    <p className="text-sm text-blue-600 mb-3">💡 Gợi ý: {q.hint_sample}</p>
+                  )}
+                  <textarea
+                    value={answers[q.id] || ''}
+                    onChange={(e) => handleAnswer(q.id, e.target.value)}
+                    disabled={submitted[q.id]}
+                    rows={2}
+                    placeholder="Nhập câu viết lại..."
+                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  {!submitted[q.id] && (
+                    <button
+                      onClick={() => handleSubmit(q.id)}
+                      className="mt-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    >
+                      Kiểm tra
+                    </button>
+                  )}
+                  {submitted[q.id] && (
+                    <div className={`mt-3 text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                      <p>{isCorrect ? '✓ Đúng!' : '✗ Chưa đúng!'}</p>
+                      <p className="text-gray-700 mt-1">Đáp án mẫu: <span className="font-medium">{q.rewritten_correct}</span></p>
+                      <p className="text-gray-600 mt-1">{q.explanation_vi}</p>
                     </div>
                   )}
                 </div>
@@ -229,190 +421,165 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
           </div>
         )}
 
-        {/* ===== READING SECTION (5 Questions) ===== */}
+        {/* Reading MCQ Section */}
         {activeZone === 'reading' && (
-          <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
-            {/* Reading Passage */}
-            <div className="bg-white p-6 rounded-[2rem] shadow-lg border-2 border-brand-100">
-              <h3 className="text-lg font-black text-brand-600 mb-4 flex items-center gap-2">
-                📖 Đọc đoạn văn sau:
-              </h3>
-              <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                <p className="text-lg text-slate-800 leading-relaxed whitespace-pre-line">
-                  {megaData.passage}
-                </p>
-              </div>
-              {megaData.passage_translation && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-sm text-brand-500 font-semibold">
-                    📝 Xem bản dịch tiếng Việt
-                  </summary>
-                  <p className="mt-2 text-sm text-slate-600 italic leading-relaxed">
-                    {megaData.passage_translation}
-                  </p>
-                </details>
-              )}
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">📖 Đọc Hiểu MCQ (5 câu)</h3>
+
+            {/* Passage */}
+            <div className="bg-blue-50 p-4 rounded-lg mb-4">
+              <h4 className="font-bold text-blue-800 mb-2">📚 Bài đọc:</h4>
+              <p className="text-gray-800 leading-relaxed">{data.passage_reading_mcq}</p>
+              <details className="mt-2">
+                <summary className="text-blue-600 cursor-pointer text-sm">Xem dịch tiếng Việt</summary>
+                <p className="text-gray-600 mt-2 text-sm">{data.passage_reading_mcq_translation}</p>
+              </details>
             </div>
 
-            {/* Reading Questions */}
-            {(megaData.reading || []).map((q, idx) => {
-              const isCorrect = answers[q.id] === q.correct_choice;
-
-              return (
-                <div key={q.id} className="bg-white p-6 rounded-[2rem] shadow-lg border-b-4 border-slate-100">
-                  <p className="font-black text-lg text-slate-800 mb-4 flex gap-3 leading-tight">
-                    <span className="bg-brand-100 text-brand-600 px-3 py-0.5 rounded-lg h-fit text-sm">
-                      Q{idx + 1}
-                    </span>
-                    {q.question_text}
-                  </p>
-
-                  <div className="space-y-3">
-                    {(q.choices || []).map((choice, i) => {
-                      const letter = ['A', 'B', 'C'][i];
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => { handleAnswer(q.id, letter); checkFinal(q.id); }}
-                          disabled={submitted[q.id]}
-                          className={`w-full p-4 rounded-xl border-2 font-bold text-left text-base transition-all flex items-center gap-3 ${submitted[q.id]
-                              ? letter === q.correct_choice
-                                ? 'bg-green-100 border-green-500 text-green-700'
-                                : answers[q.id] === letter
-                                  ? 'bg-red-100 border-red-500 text-red-700'
-                                  : 'bg-slate-50 opacity-50'
-                              : 'bg-white border-slate-100 hover:border-brand-300 hover:bg-brand-50'
-                            }`}
-                        >
-                          <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm ${submitted[q.id]
-                              ? letter === q.correct_choice
-                                ? 'bg-green-500 text-white'
-                                : answers[q.id] === letter
-                                  ? 'bg-red-500 text-white'
-                                  : 'bg-slate-200 text-slate-400'
-                              : 'bg-brand-500 text-white'
-                            }`}>
-                            {letter}
-                          </span>
-                          {choice}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {submitted[q.id] && (
-                    <div className={`mt-4 p-4 rounded-2xl border-l-4 ${isCorrect ? 'bg-green-50 border-green-500' : 'bg-amber-50 border-amber-500'}`}>
-                      <div className="flex items-start gap-3">
-                        <span className="text-3xl">{isCorrect ? '🌟' : '💡'}</span>
-                        <div>
-                          <p className="font-black text-sm mb-1 text-slate-800">
-                            {isCorrect ? 'Chính xác!' : `Chưa đúng! Đáp án đúng là: ${q.correct_choice}`}
-                          </p>
-                          <p className="text-xs italic text-slate-600 leading-relaxed">{q.explanation_vi}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            {data.readingMCQ?.map((q, idx) => (
+              <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                <p className="font-semibold mb-3">Câu {idx + 1}: {q.question_text}</p>
+                <div className="space-y-2">
+                  {q.choices.map((choice, choiceIdx) => {
+                    const letter = ['A', 'B', 'C'][choiceIdx];
+                    return (
+                      <button
+                        key={choiceIdx}
+                        onClick={() => { handleAnswer(q.id, letter); handleSubmit(q.id); }}
+                        disabled={submitted[q.id]}
+                        className={`w-full p-3 rounded-lg text-left transition-all border ${submitted[q.id]
+                            ? letter === q.correct_choice
+                              ? 'bg-green-100 border-green-500 text-green-800'
+                              : answers[q.id] === letter
+                                ? 'bg-red-100 border-red-500 text-red-800'
+                                : 'bg-gray-100 border-gray-300'
+                            : answers[q.id] === letter
+                              ? 'bg-blue-100 border-blue-500'
+                              : 'bg-white border-gray-300 hover:border-blue-400'
+                          }`}
+                      >
+                        <span className="font-bold mr-2">{letter}.</span>
+                        {choice}
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
+                {submitted[q.id] && (
+                  <p className={`mt-3 text-sm ${answers[q.id] === q.correct_choice ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[q.id] === q.correct_choice ? '✓ Đúng!' : `✗ Sai! Đáp án: ${q.correct_choice}`}
+                    <span className="block text-gray-600 mt-1">{q.explanation_vi}</span>
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
-        {/* ===== PRONUNCIATION SECTION (5 Questions) ===== */}
-        {activeZone === 'pronunciation' && (
-          <div className="space-y-8 animate-fade-in max-w-4xl mx-auto">
-            {(megaData.pronunciation || []).map((q, idx) => {
-              const isCorrect = answers[q.id] === q.correct_choice;
+        {/* True/False Section */}
+        {activeZone === 'truefalse' && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">✓✗ True/False (5 câu)</h3>
 
-              return (
-                <div key={q.id} className="bg-white p-6 rounded-[2rem] shadow-lg border-b-4 border-slate-100">
-                  <p className="text-slate-400 font-black uppercase text-[10px] mb-2 tracking-widest">
-                    Câu {idx + 1}/5 - PHÁT ÂM
-                  </p>
-                  <p className="font-bold text-lg text-slate-800 mb-4">
-                    🔊 {q.instruction || "Chọn từ có phần gạch chân phát âm khác với các từ còn lại:"}
-                  </p>
+            {/* Passage */}
+            <div className="bg-purple-50 p-4 rounded-lg mb-4">
+              <h4 className="font-bold text-purple-800 mb-2">📚 Bài đọc:</h4>
+              <p className="text-gray-800 leading-relaxed">{data.passage_true_false}</p>
+              <details className="mt-2">
+                <summary className="text-purple-600 cursor-pointer text-sm">Xem dịch tiếng Việt</summary>
+                <p className="text-gray-600 mt-2 text-sm">{data.passage_true_false_translation}</p>
+              </details>
+            </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
-                    {(q.choices || []).map((choice, i) => {
-                      const letter = ['A', 'B', 'C'][i];
-                      // Render word with underlined part
-                      const renderWord = () => {
-                        const word = choice.word;
-                        const underlined = choice.underlined;
-                        const idx = word.toLowerCase().indexOf(underlined.toLowerCase());
-                        if (idx === -1) return word;
-                        return (
-                          <>
-                            {word.slice(0, idx)}
-                            <span className="underline decoration-2 decoration-brand-500 font-black">
-                              {word.slice(idx, idx + underlined.length)}
-                            </span>
-                            {word.slice(idx + underlined.length)}
-                          </>
-                        );
-                      };
-
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => { handleAnswer(q.id, letter); checkFinal(q.id); }}
-                          disabled={submitted[q.id]}
-                          className={`p-6 rounded-xl border-2 font-bold text-center text-xl transition-all ${submitted[q.id]
-                              ? letter === q.correct_choice
-                                ? 'bg-green-100 border-green-500 text-green-700 ring-2 ring-green-200'
-                                : answers[q.id] === letter
-                                  ? 'bg-red-100 border-red-500 text-red-700'
-                                  : 'bg-slate-50 opacity-50'
-                              : 'bg-white border-slate-200 hover:border-brand-400 hover:bg-brand-50'
-                            }`}
-                        >
-                          <span className={`block w-10 h-10 mx-auto mb-3 rounded-lg flex items-center justify-center font-black text-lg ${submitted[q.id]
-                              ? letter === q.correct_choice
-                                ? 'bg-green-500 text-white'
-                                : answers[q.id] === letter
-                                  ? 'bg-red-500 text-white'
-                                  : 'bg-slate-200 text-slate-400'
-                              : 'bg-brand-500 text-white'
-                            }`}>
-                            {letter}
-                          </span>
-                          <span className="text-2xl">{renderWord()}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {submitted[q.id] && (
-                    <div className={`mt-4 p-4 rounded-2xl border-l-4 ${isCorrect ? 'bg-green-50 border-green-500' : 'bg-amber-50 border-amber-500'}`}>
-                      <div className="flex items-start gap-3">
-                        <span className="text-3xl">{isCorrect ? '🔊' : '💡'}</span>
-                        <div>
-                          <p className="font-black text-sm mb-1 text-slate-800">
-                            {isCorrect ? 'Chính xác! Bạn nghe đúng rồi!' : `Chưa đúng! Đáp án đúng là: ${q.correct_choice}`}
-                          </p>
-                          <p className="text-xs italic text-slate-600 leading-relaxed">{q.explanation_vi}</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            {data.trueFalse?.map((q, idx) => (
+              <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                <p className="font-semibold mb-3">Câu {idx + 1}: {q.statement}</p>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => { handleAnswer(q.id, true); handleSubmit(q.id); }}
+                    disabled={submitted[q.id]}
+                    className={`flex-1 p-3 rounded-lg font-bold transition-all border ${submitted[q.id]
+                        ? q.correct_answer === true
+                          ? 'bg-green-100 border-green-500 text-green-800'
+                          : answers[q.id] === true
+                            ? 'bg-red-100 border-red-500 text-red-800'
+                            : 'bg-gray-100 border-gray-300'
+                        : answers[q.id] === true
+                          ? 'bg-blue-100 border-blue-500'
+                          : 'bg-white border-gray-300 hover:border-green-400'
+                      }`}
+                  >
+                    ✓ TRUE
+                  </button>
+                  <button
+                    onClick={() => { handleAnswer(q.id, false); handleSubmit(q.id); }}
+                    disabled={submitted[q.id]}
+                    className={`flex-1 p-3 rounded-lg font-bold transition-all border ${submitted[q.id]
+                        ? q.correct_answer === false
+                          ? 'bg-green-100 border-green-500 text-green-800'
+                          : answers[q.id] === false
+                            ? 'bg-red-100 border-red-500 text-red-800'
+                            : 'bg-gray-100 border-gray-300'
+                        : answers[q.id] === false
+                          ? 'bg-blue-100 border-blue-500'
+                          : 'bg-white border-gray-300 hover:border-red-400'
+                      }`}
+                  >
+                    ✗ FALSE
+                  </button>
                 </div>
-              );
-            })}
+                {submitted[q.id] && (
+                  <p className={`mt-3 text-sm ${answers[q.id] === q.correct_answer ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[q.id] === q.correct_answer ? '✓ Đúng!' : `✗ Sai! Đáp án: ${q.correct_answer ? 'TRUE' : 'FALSE'}`}
+                    <span className="block text-gray-600 mt-1">{q.explanation_vi}</span>
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Fill-blank Box Section */}
+        {activeZone === 'fillbox' && (
+          <div className="space-y-6">
+            <h3 className="text-xl font-bold text-green-800 mb-4">📦 Điền Từ Trong Khung (5 câu)</h3>
+            {data.fillBlankBox?.map((q, idx) => (
+              <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
+                <p className="font-semibold mb-3">Câu {idx + 1}: {q.sentence}</p>
+
+                {/* Word Box */}
+                <div className="flex flex-wrap gap-2 mb-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  {q.word_box.map((word, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { handleAnswer(q.id, word); handleSubmit(q.id); }}
+                      disabled={submitted[q.id]}
+                      className={`px-4 py-2 rounded-lg font-medium transition-all border ${submitted[q.id]
+                          ? word === q.correct_answer
+                            ? 'bg-green-200 border-green-500 text-green-800'
+                            : answers[q.id] === word
+                              ? 'bg-red-200 border-red-500 text-red-800'
+                              : 'bg-gray-100 border-gray-300'
+                          : 'bg-white border-amber-300 hover:bg-amber-100'
+                        }`}
+                    >
+                      {word}
+                    </button>
+                  ))}
+                </div>
+
+                {submitted[q.id] && (
+                  <p className={`mt-3 text-sm ${answers[q.id] === q.correct_answer ? 'text-green-600' : 'text-red-600'}`}>
+                    {answers[q.id] === q.correct_answer ? '✓ Đúng!' : `✗ Sai! Đáp án: ${q.correct_answer}`}
+                    <span className="block text-gray-600 mt-1">{q.explanation_vi}</span>
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
-
-      {/* Test Complete Banner */}
-      {isTestComplete() && (
-        <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-6 text-center">
-          <h3 className="text-2xl font-black text-white mb-2">🎉 Hoàn Thành Bài Kiểm Tra!</h3>
-          <p className="text-white/90 text-lg">
-            Điểm số của bạn: <span className="font-black text-yellow-300">{score}/10,0</span> ({correctText} câu đúng)
-          </p>
-        </div>
-      )}
     </div>
   );
 };
+
+export default MegaChallenge;

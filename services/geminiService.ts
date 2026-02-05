@@ -543,13 +543,19 @@ const lessonSchema = {
           type: Type.OBJECT,
           properties: {
             level: { type: Type.STRING },
-            passage: { type: Type.STRING },
-            passage_translation: { type: Type.STRING },
-            rewrite: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, original_sentence: { type: Type.STRING }, instruction: { type: Type.STRING }, hint_sample: { type: Type.STRING }, rewritten_correct: { type: Type.STRING }, allowed_variants: { type: Type.ARRAY, items: { type: Type.STRING } }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "original_sentence", "hint_sample", "rewritten_correct", "explanation_vi", "level"] } },
-            reading: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, question_text: { type: Type.STRING }, choices: { type: Type.ARRAY, items: { type: Type.STRING } }, correct_choice: { type: Type.STRING }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "question_text", "choices", "correct_choice", "explanation_vi", "level"] } },
-            pronunciation: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, instruction: { type: Type.STRING }, choices: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { word: { type: Type.STRING }, underlined: { type: Type.STRING } } } }, correct_choice: { type: Type.STRING }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "instruction", "choices", "correct_choice", "explanation_vi", "level"] } }
+            passage_reading_mcq: { type: Type.STRING },
+            passage_reading_mcq_translation: { type: Type.STRING },
+            passage_true_false: { type: Type.STRING },
+            passage_true_false_translation: { type: Type.STRING },
+            multipleChoice: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctAnswer: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "question", "options", "correctAnswer", "explanation"] } },
+            fillBlank: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, question: { type: Type.STRING }, correctAnswer: { type: Type.STRING }, clueEmoji: { type: Type.STRING } }, required: ["id", "question", "correctAnswer", "clueEmoji"] } },
+            scramble: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, scrambled: { type: Type.ARRAY, items: { type: Type.STRING } }, correctSentence: { type: Type.STRING }, translation: { type: Type.STRING } }, required: ["id", "scrambled", "correctSentence", "translation"] } },
+            rewrite: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, original_sentence: { type: Type.STRING }, instruction: { type: Type.STRING }, hint_sample: { type: Type.STRING }, rewritten_correct: { type: Type.STRING }, allowed_variants: { type: Type.ARRAY, items: { type: Type.STRING } }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "original_sentence", "instruction", "rewritten_correct", "explanation_vi", "level"] } },
+            readingMCQ: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, question_text: { type: Type.STRING }, choices: { type: Type.ARRAY, items: { type: Type.STRING } }, correct_choice: { type: Type.STRING }, explanation_vi: { type: Type.STRING } }, required: ["id", "question_text", "choices", "correct_choice", "explanation_vi"] } },
+            trueFalse: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, statement: { type: Type.STRING }, correct_answer: { type: Type.BOOLEAN }, explanation_vi: { type: Type.STRING } }, required: ["id", "statement", "correct_answer", "explanation_vi"] } },
+            fillBlankBox: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, sentence: { type: Type.STRING }, word_box: { type: Type.ARRAY, items: { type: Type.STRING } }, correct_answer: { type: Type.STRING }, explanation_vi: { type: Type.STRING } }, required: ["id", "sentence", "word_box", "correct_answer", "explanation_vi"] } }
           },
-          required: ["level", "passage", "rewrite", "reading", "pronunciation"]
+          required: ["level", "passage_reading_mcq", "passage_true_false", "multipleChoice", "fillBlank", "scramble", "rewrite", "readingMCQ", "trueFalse", "fillBlankBox"]
         }
       },
       required: ["listening", "megaTest"]
