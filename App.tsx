@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { generateLessonPlan, fileToBase64, getApiKey, setApiKey, hasApiKey, AVAILABLE_MODELS, getSelectedModel, setSelectedModel } from './services/geminiService';
-import { LessonPlan } from './types';
+import { LessonPlan, VocabularyLevel } from './types';
 import { VocabularySection } from './components/VocabularySection';
 import { MegaChallenge } from './components/MegaChallenge';
 import { UploadZone } from './components/UploadZone';
@@ -54,7 +54,8 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [studentName, setStudentName] = useState('');
   // Removed listeningCorrect since listening section was removed
-  const [megaScores, setMegaScores] = useState({ mc: 0, scramble: 0, fill: 0, error: 0, match: 0 });
+  const [megaScores, setMegaScores] = useState({ total: 0, rewrite: 0, reading: 0, pronunciation: 0 });
+  const [selectedLevel, setSelectedLevel] = useState<VocabularyLevel>('A1');
   const [showCertificate, setShowCertificate] = useState(false);
 
   // API Key & Settings Management
@@ -84,8 +85,8 @@ function App() {
     }
   };
 
-  // Calculate the total number of correct answers (MegaTest only - 40 questions total)
-  const totalCorrectCount = megaScores.mc + megaScores.scramble + megaScores.fill + megaScores.error + megaScores.match;
+  // Calculate the total number of correct answers (MegaTest - 50 questions total)
+  const totalCorrectCount = megaScores.total;
 
   const handleGenerate = async () => {
     // Check API key first
@@ -112,7 +113,8 @@ function App() {
       const data = await generateLessonPlan(
         plannerMode === 'topic' ? topic : undefined,
         plannerMode === 'text' ? lessonText : undefined,
-        base64Images
+        base64Images,
+        selectedLevel
       );
       setLesson(data);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -132,7 +134,9 @@ function App() {
   };
 
   function calculateTotalScore() {
-    return Math.round((totalCorrectCount / 40) * 10 * 10) / 10;
+    // 50 questions, 10 points total, 0.2 points each
+    const score = (totalCorrectCount / 50) * 10;
+    return Math.round(score * 10) / 10;
   }
 
   const totalScore = calculateTotalScore();
@@ -259,6 +263,31 @@ function App() {
                     {plannerMode === 'text' && <textarea value={lessonText} onChange={e => setLessonText(e.target.value)} placeholder="Dán nội dung bài học vào đây..." rows={6} className="w-full p-6 text-lg rounded-2xl border-4 border-brand-50 bg-brand-50/50 resize-none font-black text-slate-700 outline-none" />}
                     {plannerMode === 'image' && <UploadZone onFilesSelect={setSelectedFiles} isLoading={loading} fileCount={selectedFiles.length} />}
                   </div>
+
+                  {/* Level Selector */}
+                  <div className="flex flex-col items-center gap-2">
+                    <label className="text-sm font-bold text-slate-600 uppercase tracking-wider">📚 Chọn cấp độ từ vựng:</label>
+                    <div className="flex gap-2">
+                      {(['A1', 'A2', 'B1'] as VocabularyLevel[]).map(level => (
+                        <button
+                          key={level}
+                          onClick={() => setSelectedLevel(level)}
+                          className={`px-6 py-3 rounded-xl font-black text-lg transition-all ${selectedLevel === level
+                              ? 'bg-brand-500 text-white shadow-lg ring-2 ring-brand-300'
+                              : 'bg-slate-100 text-slate-600 hover:bg-brand-100'
+                            }`}
+                        >
+                          {level}
+                          <span className="block text-[10px] font-bold opacity-70">
+                            {level === 'A1' && 'Sơ cấp'}
+                            {level === 'A2' && 'Cơ bản'}
+                            {level === 'B1' && 'Trung cấp'}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
                   <button onClick={handleGenerate} disabled={loading} className="w-full py-6 bg-brand-500 border-b-8 border-brand-700 text-white rounded-3xl font-black text-2xl shadow-xl transform active:translate-y-2 active:border-b-0 uppercase tracking-tighter">
                     {loading ? 'ĐANG SOẠN BÀI SIÊU TỐC...' : '🚀 BẮT ĐẦU NGAY!'}
                   </button>
@@ -277,7 +306,7 @@ function App() {
                         setLessonText('');
                         setSelectedFiles([]);
                         setStudentName('');
-                        setMegaScores({ mc: 0, scramble: 0, fill: 0, error: 0, match: 0 });
+                        setMegaScores({ total: 0, rewrite: 0, reading: 0, pronunciation: 0 });
                         setShowCertificate(false);
                         setError(null);
                       }}
@@ -332,7 +361,7 @@ function App() {
                       <span className="text-xl sm:text-2xl font-bold text-slate-300">/10</span>
                     </div>
                     <div className="text-sm sm:text-base font-semibold text-brand-500 bg-brand-50 px-4 py-1 rounded-full">
-                      Số câu đúng: <span className="text-brand-700 font-bold">{totalCorrectCount}/40</span>
+                      Số câu đúng: <span className="text-brand-700 font-bold">{totalCorrectCount}/50</span>
                     </div>
                     <div className={`px-6 py-2 sm:px-8 sm:py-3 rounded-full font-bold text-base sm:text-xl shadow-lg ${totalScore >= 5 ? 'bg-brand-500 text-white' : 'bg-orange-500 text-white'}`}>
                       {evaluation.emoji} {evaluation.text}

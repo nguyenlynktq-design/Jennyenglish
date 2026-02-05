@@ -1,6 +1,9 @@
 
 export type QuizDifficulty = 'Easy' | 'Medium' | 'Hard';
 
+// ===== VOCABULARY LEVEL (A1/A2/B1) =====
+export type VocabularyLevel = 'A1' | 'A2' | 'B1';
+
 export interface VocabularyItem {
   word: string;
   emoji: string;
@@ -19,9 +22,9 @@ export interface GrammarSection {
 
 export interface ListeningQ {
   id: string;
-  audioText: string; 
-  options: string[]; 
-  correctAnswer: number; 
+  audioText: string;
+  options: string[];
+  correctAnswer: number;
   explanation: string;
 }
 
@@ -53,18 +56,61 @@ export interface FillInputQ {
   clueEmoji: string;
 }
 
-export interface ErrorIdQ {
+// ===== NEW EXERCISE TYPES (50 TOTAL) =====
+
+// 1. Sentence Rewriting (40 questions)
+export interface RewriteQ {
   id: string;
-  sentence: string;
-  options: string[]; 
-  correctOptionIndex: number;
-  explanation: string;
+  type: 'rewrite';
+  original_sentence: string;
+  instruction: string;
+  hint_sample: string;
+  rewritten_correct: string;
+  allowed_variants?: string[];
+  explanation_vi: string;
+  level: VocabularyLevel;
+}
+
+// 2. Reading Comprehension MCQ (5 questions)
+export interface ReadingMCQ {
+  id: string;
+  type: 'reading_mcq';
+  question_text: string;
+  choices: [string, string, string]; // A, B, C
+  correct_choice: 'A' | 'B' | 'C';
+  explanation_vi: string;
+  level: VocabularyLevel;
+}
+
+// 3. Pronunciation Odd-One-Out (5 questions)
+export interface PronunciationMCQ {
+  id: string;
+  type: 'pronunciation_mcq';
+  instruction: string;
+  choices: [
+    { word: string; underlined: string },
+    { word: string; underlined: string },
+    { word: string; underlined: string }
+  ];
+  correct_choice: 'A' | 'B' | 'C';
+  explanation_vi: string;
+  level: VocabularyLevel;
+}
+
+// Combined 50-question test
+export interface MegaTest50 {
+  level: VocabularyLevel;
+  passage: string;
+  passage_translation: string;
+  rewrite: RewriteQ[];        // 40 questions
+  reading: ReadingMCQ[];      // 5 questions  
+  pronunciation: PronunciationMCQ[]; // 5 questions
 }
 
 export interface MatchingPair {
   id: string;
-  left: string; 
-  right: string; 
+  left: string;
+  right: string;
 }
 
 export interface ReadingAdventure {
@@ -81,18 +127,13 @@ export interface HomeworkTask {
 }
 
 export interface PracticeContent {
-  listening: ListeningQ[]; 
-  megaTest: {
-    multipleChoice: MultipleChoiceQ[]; 
-    scramble: ScrambleQ[]; 
-    fillBlank: FillInputQ[]; 
-    errorId: ErrorIdQ[]; 
-    matching: MatchingPair[]; 
-  };
+  listening: ListeningQ[];
+  megaTest: MegaTest50;
 }
 
 export interface LessonPlan {
   topic: string;
+  level: VocabularyLevel;
   vocabulary: VocabularyItem[];
   grammar: GrammarSection;
   reading: ReadingAdventure;
@@ -110,7 +151,7 @@ export interface MindMapData {
   center: {
     title_en: string;
     title_vi: string;
-    emoji?: string; 
+    emoji?: string;
   };
   nodes: Array<{
     text_en: string;

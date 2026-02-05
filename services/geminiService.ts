@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { LessonPlan, MindMapData, MindMapMode, PresentationScript, ContentResult, CharacterProfile, AppMode, ImageRatio, SpeechEvaluation } from "../types";
+import { LessonPlan, MindMapData, MindMapMode, PresentationScript, ContentResult, CharacterProfile, AppMode, ImageRatio, SpeechEvaluation, VocabularyLevel, MegaTest50 } from "../types";
+import { FIXED_PASSAGES } from "../utils/fixedPassages";
 
 // ===== API KEY MANAGEMENT =====
 // Priority: localStorage > environment variable
@@ -291,439 +292,121 @@ export const generateAudioFromContent = async (text: string): Promise<string> =>
   return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data || "";
 };
 
-export const generateLessonPlan = async (topicInput?: string, textInput?: string, images: string[] = []): Promise<LessonPlan> => {
+export const generateLessonPlan = async (topicInput?: string, textInput?: string, images: string[] = [], level: VocabularyLevel = 'A1'): Promise<LessonPlan> => {
   const ai = getAI();
   const imageParts = images.map(data => ({ inlineData: { data, mimeType: 'image/jpeg' } }));
+
+  // Get fixed passage for the selected level
+  const fixedPassage = FIXED_PASSAGES[level];
+
   const prompt = `MRS. DUNG AI - EXPERT PEDAGOGY MODE (CHUYÊN GIA TIẾNG ANH).
-  TASK: Analyze the provided content (text/images) and create a comprehensive lesson plan.
+  TASK: Analyze the provided content and create a 50-QUESTION MEGATEST.
   
-  ===== ⚠️⚠️⚠️ CRITICAL WARNING: ZERO TOLERANCE FOR GRADING ERRORS ⚠️⚠️⚠️ =====
+  ===== 📚 VOCABULARY LEVEL: ${level} =====
   
-  🚨 BẠN ĐANG TẠO BÀI KIỂM TRA CHO HỌC SINH THẬT! 🚨
-  - Nếu đáp án SAI → Học sinh bị chấm SAI → Học sinh mất niềm tin → THẤT BẠI!
-  - Mỗi câu hỏi PHẢI được kiểm tra 2 LẦN trước khi output
-  - KHÔNG ĐƯỢC phép ra đề 1 kiểu, đáp án 1 kiểu khác!
-  
-  ===== CRITICAL: 100% CONTENT EXTRACTION =====
-  ⚠️ QUAN TRỌNG NHẤT: Phải trích xuất CHÍNH XÁC và ĐẦY ĐỦ 100% nội dung từ nguồn!
-  - Nếu ảnh/văn bản có 10 từ vựng → tạo ĐÚNG 10 từ vựng, KHÔNG được bỏ sót
-  - Nếu ảnh/văn bản có 5 từ vựng → tạo ĐÚNG 5 từ vựng
-  - KHÔNG được tự thêm từ vựng mà nguồn không có
-  - KHÔNG được bỏ sót bất kỳ từ vựng nào trong nguồn
-  - Từ vựng phải GIỐNG HỆT với nội dung gốc (word, IPA, meaning, example)
-  
-  CRITICAL LANGUAGE REQUIREMENTS:
-  - GRAMMAR section:
-    * "topic": Keep in English (the grammar rule name)
-    * "explanation": MUST be in VIETNAMESE (giải thích bằng tiếng Việt, dễ hiểu cho học sinh)
-    * "examples": Each example MUST include Vietnamese translation in format: "English sentence" → "bản dịch tiếng việt viết thường"
-  
-  - VOCABULARY section (EXTRACT ALL FROM SOURCE):
-    * Extract EVERY SINGLE vocabulary word from the source - DO NOT SKIP ANY
-    * "word": English word (EXACTLY as shown in source)
-    * "ipa": IPA pronunciation (EXACTLY as shown in source if available)
-    * "meaning": Vietnamese meaning (EXACTLY as shown in source, lowercase)
-    * "example": English example sentence (EXACTLY as shown in source)
-    * "sentenceMeaning": Vietnamese translation of example (EXACTLY as shown in source, lowercase)
-  
-  ===== MEGATEST EXERCISE REQUIREMENTS (CHẤT LƯỢNG CHUYÊN GIA - 20 NĂM KINH NGHIỆM) =====
-  
-  🎓 YOU ARE A PROFESSIONAL ENGLISH TEACHER WITH 20 YEARS EXPERIENCE
-  You must create exercises with 100% grammatical accuracy. Every answer key must be verified.
-  
-  ===== ⚠️ CRITICAL: 80% CONTENT MUST USE INPUT VOCABULARY/GRAMMAR =====
-  
-  MANDATORY RULE: At least 80% of ALL exercises (32/40 questions) MUST directly use the vocabulary, 
-  grammar patterns, and concepts from the INPUT SOURCE provided by the user.
-  
-  EXAMPLE: If user provides these adverbs: "Always, Usually, Often, Sometimes, Never, Every day..."
-  Then 80% of your exercises MUST:
-  ✓ Multiple Choice: "I ____ go to school on foot." (A) always (B) tomorrow (C) yesterday (D) last week
-  ✓ Fill-blank: "She ____ drinks coffee in the morning." → Answer: usually/always/often
-  ✓ Scramble: "always / I / breakfast / have / at 7 AM / ." → "I always have breakfast at 7 AM."
-  ✓ Error ID: "He (A) go (B) always (C) to school (D) late." → Error at (A) or (B) based on grammar rules
-  
-  ❌ DO NOT create exercises about random topics unrelated to the input!
-  ❌ DO NOT ignore the input vocabulary and create exercises about colors when user gave time adverbs!
-  
-  HOW TO CALCULATE 80%:
-  - Total exercises = 10 MC + 10 Fill + 10 Scramble + 10 Error = 40 questions
-  - 80% = At least 32 questions MUST use input vocabulary/grammar
-  - Remaining 20% (8 questions) can introduce related/supporting concepts
-  
-  VERIFICATION CHECKLIST:
-  □ Did I use at least 8/10 Multiple Choice questions with input vocabulary?
-  □ Did I use at least 8/10 Fill-blank questions with input vocabulary?
-  □ Did I use at least 8/10 Scramble sentences with input vocabulary?
-  □ Did I use at least 8/10 Error ID sentences with input vocabulary?
-  
-  ===== ⚠️ CRITICAL: MATCH DIFFICULTY LEVEL WITH INPUT =====
-  
-  🎯 GOLDEN RULE: Exercise difficulty MUST match the input example sentences!
-  
-  STEP 1: Analyze the input sentences complexity:
-  - Simple: "He has a bat." (Subject + verb + object) = 4-5 words, basic verbs
-  - Medium: "I usually go to school by bus." = 6-8 words, more structure
-  - Complex: "She wants to buy a new dress for the party." = 8+ words, infinitives, clauses
-  
-  STEP 2: Create exercises at the SAME complexity level!
-  
-  ❌ WRONG EXAMPLE (INPUT IS SIMPLE BUT EXERCISE IS COMPLEX):
-  Input vocabulary: Bat - "He has a bat."
-  ❌ Exercise: "She wants to use the map to find her way." (TOO COMPLEX!)
-  ❌ Exercise: "I hit the ball with a bat." (MORE COMPLEX THAN INPUT!)
-  ❌ Exercise: "The map shows the way to the city." (TOO COMPLEX!)
-  
-  ✓ CORRECT EXAMPLE (MATCHING DIFFICULTY):
-  Input vocabulary: Bat - "He has a bat.", Map - "I need a map.", Bed - "The bed is big."
-  ✓ Multiple Choice: "He has a ____." (A) bat (B) car (C) book (D) pen
-  ✓ Fill-blank: "I need a ____." → map
-  ✓ Scramble: "has / He / a / bat / ." → "He has a bat."
-  ✓ Error ID: "He (A) have (B) a (C) bat (D) ." → Error at (A): "have" should be "has"
-  
-  DIFFICULTY MATCHING RULES:
-  1. If input uses 3-5 word sentences → Exercises use 3-5 word sentences
-  2. If input uses simple verbs (has, is, need) → Exercises use same simple verbs
-  3. If input uses basic structures (S + V + O) → Exercises use same basic structures
-  4. DO NOT add infinitives (to + verb) if input doesn't have them
-  5. DO NOT add complex clauses if input only has simple sentences
-  6. PREFER using the EXACT example sentences from input as exercise base
-  
-  VERIFICATION: Before submitting, check each exercise:
-  □ Is this sentence complexity similar to input examples?
-  □ Am I using vocabulary from the input, not new complex words?
-  □ Would a student who learned the input vocabulary understand this exercise?
-  
-  ===== FUNDAMENTAL GRAMMAR RULES CHECKLIST =====
-  Before creating ANY exercise, verify these 15 grammar rules:
-  
-  1. SUBJECT-VERB AGREEMENT:
-     - He/She/It + V-s/es: "She walks" ✓, "She walk" ❌
-     - I/You/We/They + V: "They walk" ✓, "They walks" ❌
-     - There is + singular, There are + plural
-  
-  2. VERB vs NOUN FORMS (CRITICAL!):
-     - VERB → NOUN examples:
-       * complain → complaint ("make a complaint" ✓, "make a complain" ❌)
-       * advise → advice ("give advice" ✓, "give advise" ❌)
-       * believe → belief ("have a belief" ✓)
-       * choose → choice ("make a choice" ✓)
-       * succeed → success ("achieve success" ✓)
-       * decide → decision ("make a decision" ✓)
-       * explain → explanation ("give an explanation" ✓)
-       * describe → description ("write a description" ✓)
-  
-  3. TENSE CONSISTENCY:
-     - Past markers (yesterday, last week, ago) → Past tense
-     - Present markers (every day, usually, always) → Present tense
-     - Now, at the moment → Present continuous
-     - Since, for + duration → Present perfect
-  
-  4. ARTICLES (a/an/the):
-     - a + consonant sound: "a book", "a university" (yoo-sound)
-     - an + vowel sound: "an apple", "an hour" (silent h)
-     - the = specific/known item
-     - No article: plural general, uncountable general
-  
-  5. PREPOSITIONS:
-     - listen TO music ✓ (not "listen music")
-     - depend ON ✓ (not "depend of")
-     - interested IN ✓ (not "interested on")
-     - good AT ✓ (not "good in")
-     - arrive AT (place) / arrive IN (city/country)
-     - on Monday, in January, at 5 o'clock
-  
-  6. PRONOUN FORMS:
-     - Subject: I, you, he, she, it, we, they
-     - Object: me, you, him, her, it, us, them
-     - Possessive adj: my, your, his, her, its, our, their
-     - Possessive pronoun: mine, yours, his, hers, ours, theirs
-     - "Him went home" ❌ → "He went home" ✓
-  
-  7. COMPARATIVE & SUPERLATIVE:
-     - Short adj: -er/-est (big → bigger → biggest)
-     - Long adj: more/most (beautiful → more beautiful)
-     - NEVER combine: "more bigger" ❌, "most biggest" ❌
-     - Irregular: good → better → best, bad → worse → worst
-  
-  8. ADVERB WORD ORDER:
-     - Frequency adverbs (always, usually, often, sometimes, never):
-       * Before main verb: "I always eat" ✓
-       * After BE verb: "She is always late" ✓, "She always is late" ❌
-  
-  9. INFINITIVE vs GERUND:
-     - want/need/decide/hope + TO + V: "want to go" ✓
-     - enjoy/finish/avoid/mind + V-ing: "enjoy swimming" ✓
-     - stop + to (purpose) vs stop + -ing (end activity)
-  
-  10. COUNTABLE vs UNCOUNTABLE:
-      - Uncountable: water, information, advice, furniture, news, homework
-      - "informations" ❌, "advices" ❌, "furnitures" ❌
-      - much/little + uncountable, many/few + countable
-  
-  11. RELATIVE PRONOUNS:
-      - who/that = people, which/that = things
-      - whose = possession, where = place, when = time
-  
-  12. CONDITIONALS:
-      - Type 0: If + present, present (general truth)
-      - Type 1: If + present, will + V (real future)
-      - Type 2: If + past, would + V (unreal present)
-      - Type 3: If + had + PP, would have + PP (unreal past)
-  
-  13. MODAL VERBS:
-      - Modal + base verb: "can swim" ✓, "can swims" ❌, "can to swim" ❌
-      - must/should/can/could/may/might/will/would
-  
-  14. PASSIVE VOICE:
-      - be + past participle: "is written", "was built", "has been done"
-      - "The book was wrote" ❌ → "The book was written" ✓
-  
-  15. THERE vs THEIR vs THEY'RE:
-      - there = location/existence, their = possession, they're = they are
-  
-  ===== EXERCISE-SPECIFIC REQUIREMENTS =====
-  
-  📝 MULTIPLE CHOICE (multipleChoice):
-  - "question": A sentence with ONE blank using "____" for the gap
-  - "options": 4 options [A, B, C, D] - only ONE grammatically correct
-  - "correctAnswer": Index of correct option (0-3)
-  - ⚠️ VERIFY: Check the correct answer against grammar rules above
-  - ⚠️ VERIFY: Ensure 3 wrong options are clearly grammatically incorrect
-  - "explanation": Vietnamese explanation with grammar rule reference
-  
-  MULTIPLE CHOICE VALIDATION EXAMPLE:
-  Question: "She ____ to school every day."
-  Options: ["go", "goes", "going", "went"]
-  ✓ Check: Subject "She" (3rd person singular) + "every day" (present habit)
-  ✓ Rule 1: She + V-s = "goes"
-  ✓ correctAnswer: 1 (index of "goes")
+  🚨 CRITICAL: TEST STRUCTURE (EXACTLY 50 QUESTIONS) 🚨
+  1. Sentence Rewriting: 40 questions - "Viết lại câu sao cho nghĩa không đổi"
+  2. Reading Comprehension: 5 questions - Based on fixed passage
+  3. Pronunciation Odd-One-Out: 5 questions - "Chọn từ có phần gạch chân phát âm khác"
 
-  📝 FILL-IN-THE-BLANK (fillBlank):
-  ⚠️ CRITICAL: ONLY 1 WORD ANSWER, ONLY 1 BLANK
-  - "question": Complete sentence with exactly ONE blank "____"
-  - "correctAnswer": EXACTLY 1 WORD (no phrases like "am eating")
-  - ⚠️ VERIFY: The completed sentence must be 100% grammatically correct
-  - ⚠️ VERIFY: No alternative correct answers possible
+  ===== 📝 FIXED READING PASSAGE FOR LEVEL ${level} =====
+  Use this passage for the 5 Reading Comprehension questions:
   
-  FILL-BLANK VALIDATION EXAMPLE:
-  Question: "He usually ____ to music." → Answer: "listens"
-  ✓ Check: "He" (3rd person) + "usually" (present habit) = present simple
-  ✓ Rule 1: He + V-s = "listens" ✓
-  ✓ Complete sentence: "He usually listens to music." ✓ Grammatically perfect
+  Title: "${fixedPassage.title}"
+  "${fixedPassage.passage}"
+  Translation: "${fixedPassage.translation}"
   
-  ===== 🚨🚨🚨 ERROR IDENTIFICATION - MANDATORY DOUBLE-CHECK PROTOCOL 🚨🚨🚨 =====
+  ===== 📝 EXERCISE SPECIFICATIONS =====
   
-  📝 ERROR IDENTIFICATION (errorId):
-  ⚠️ ĐÂY LÀ PHẦN DỄ SAI NHẤT! PHẢI KIỂM TRA THẬT KỸ!
+  Extract vocabulary and grammar from source for REWRITE questions.
   
-  🔴🔴🔴 CRITICAL - ĐỌC KỸ VÀ LÀM ĐÚNG 🔴🔴🔴
+  1️⃣ SENTENCE REWRITING (40 questions) - "Viết lại câu sao cho nghĩa không đổi"
+  Each question must include:
+  - id: "rewrite_1" to "rewrite_40"
+  - type: "rewrite"
+  - original_sentence: The original English sentence
+  - instruction: "Rewrite the sentence so that it means the same."
+  - hint_sample: A helpful hint (e.g., "Start with: There is..." or "Use: because")
+  - rewritten_correct: The correct rewritten sentence
+  - allowed_variants: Array of acceptable alternative answers (optional)
+  - explanation_vi: Vietnamese explanation of why the rewrite works
+  - level: "${level}"
   
-  INDEX MAPPING TABLE - HỌC THUỘC LÒNG:
-  ┌─────────┬─────────────────────┐
-  │ CHỮ CÁI │ correctOptionIndex  │
-  ├─────────┼─────────────────────┤
-  │   (A)   │         0           │
-  │   (B)   │         1           │
-  │   (C)   │         2           │
-  │   (D)   │         3           │
-  └─────────┴─────────────────────┘
+  REWRITE RULES:
+  ✓ Use vocabulary and grammar from the input source
+  ✓ Meaning must remain IDENTICAL (paraphrase only)
+  ✓ Grammar must be 100% correct in both sentences
+  ✓ Hint must be helpful but NOT reveal the full answer
+  ✓ Use ${level}-appropriate structures
   
-  📋 QUY TRÌNH BẮT BUỘC 5 BƯỚC:
+  2️⃣ READING COMPREHENSION (5 questions) - Based on fixed passage above
+  Each question must include:
+  - id: "reading_1" to "reading_5"
+  - type: "reading_mcq"
+  - question_text: Question about the passage
+  - choices: Array of exactly 3 strings ["Answer A", "Answer B", "Answer C"]
+  - correct_choice: "A" or "B" or "C"
+  - explanation_vi: Vietnamese explanation
+  - level: "${level}"
   
-  BƯỚC 1 - TẠO CÂU:
-  Viết câu có ĐÚNG 1 lỗi ngữ pháp. Đánh dấu 4 phần (A), (B), (C), (D).
+  READING RULES:
+  ✓ Questions must be answerable ONLY from the passage text
+  ✓ Mix of factual, inference, and vocabulary questions
+  ✓ Distribute correct answers across A, B, C (not all the same)
+  ✓ Wrong choices must be plausible (not obviously wrong)
   
-  BƯỚC 2 - TÌM LỖI:
-  Xác định CHỮ CÁI của phần có lỗi. Ví dụ: "Lỗi ở phần (A)"
+  3️⃣ PRONUNCIATION ODD-ONE-OUT (5 questions) - "Chọn từ có phần gạch chân phát âm khác"
+  Each question must include:
+  - id: "pron_1" to "pron_5"
+  - type: "pronunciation_mcq"
+  - instruction: "Choose the word with a different sound."
+  - choices: Array of 3 objects [{word, underlined}] where underlined part differs in pronunciation
+  - correct_choice: "A" or "B" or "C" - the word with different pronunciation
+  - explanation_vi: Vietnamese explanation of phonetic difference
+  - level: "${level}"
   
-  BƯỚC 3 - CHUYỂN ĐỔI CHỮ CÁI SANG INDEX:
-  Dùng bảng trên: A→0, B→1, C→2, D→3
-  Ví dụ: Lỗi ở (A) → correctOptionIndex = 0
+  PRONUNCIATION EXAMPLES:
+  - /e/ vs /iː/: head (̱e̱a = /e/) vs read (̱e̱a = /iː/)
+  - /ʊ/ vs /uː/: good (̱o̱o = /ʊ/) vs food (̱o̱o = /uː/)
+  - /s/ vs /z/: books (̱s̱ = /s/) vs dogs (̱s̱ = /z/)
+  - /t/ vs /d/ vs /ɪd/: walked (̱eḏ = /t/) vs played (̱eḏ = /d/) vs wanted (̱eḏ = /ɪd/)
   
-  BƯỚC 4 - GHI VÀO JSON:
-  "correctOptionIndex": [số đã tính ở bước 3]
+  PRONUNCIATION RULES:
+  ✓ The underlined grapheme MUST exist in each word
+  ✓ Exactly 1 word has different pronunciation
+  ✓ Explanation must state which sounds differ (IPA)
   
-  BƯỚC 5 - KIỂM TRA NGƯỢC (BẮT BUỘC!):
-  Đọc lại explanation và xem phần có lỗi có khớp với options[correctOptionIndex] không.
-  Nếu explanation nói "lỗi ở go" thì options[correctOptionIndex] PHẢI chứa "go"!
+  ===== ✅ MEGTEST OUTPUT FORMAT =====
   
-  ===== VÍ DỤ THỰC TẾ - LÀM THEO Y HỆT =====
+  The megaTest object MUST include:
+  {
+    "level": "${level}",
+    "passage": "${fixedPassage.passage}",
+    "passage_translation": "${fixedPassage.translation}",
+    "rewrite": [... 40 RewriteQ objects ...],
+    "reading": [... 5 ReadingMCQ objects ...],
+    "pronunciation": [... 5 PronunciationMCQ objects ...]
+  }
   
-  📌 VÍ DỤ 1 - LỖI Ở (A):
-  sentence: "She (A) have (B) a (C) table (D) ."
-  options: ["(A) have", "(B) a", "(C) table", "(D) ."]
+  ===== VOCABULARY & GRAMMAR =====
   
-  Bước 2: Lỗi ở "have" → Đây là phần (A)
-  Bước 3: (A) → index 0
-  Bước 4: correctOptionIndex: 0
-  Bước 5: options[0] = "(A) have" ✓ KHỚP VỚI LỖI!
+  Extract ALL vocabulary from source exactly as provided.
+  Grammar explanation must be in Vietnamese.
   
-  explanation: "Lỗi ở (A). 'She' là ngôi 3 số ít → dùng 'has', không phải 'have'."
+  ===== FINAL VALIDATION =====
+  Before output, verify:
+  ☐ Exactly 40 rewrite questions with valid hint_sample
+  ☐ Exactly 5 reading questions based on fixed passage
+  ☐ Exactly 5 pronunciation questions with underlined graphemes
+  ☐ All grammar is 100% correct
+  ☐ All explanations are in Vietnamese
   
-  📌 VÍ DỤ 2 - LỖI Ở (B):
-  sentence: "The (A) bananas (B) is (C) yellow (D) ."
-  options: ["(A) bananas", "(B) is", "(C) yellow", "(D) ."]
-  
-  Bước 2: Lỗi ở "is" → Đây là phần (B)
-  Bước 3: (B) → index 1
-  Bước 4: correctOptionIndex: 1
-  Bước 5: options[1] = "(B) is" ✓ KHỚP VỚI LỖI!
-  
-  explanation: "Lỗi ở (B). 'bananas' là số nhiều → dùng 'are', không phải 'is'."
-  
-  📌 VÍ DỤ 3 - LỖI Ở (A) VỚI THÌ QUÁ KHỨ:
-  sentence: "I (A) go (B) to (C) the aquarium (D) yesterday."
-  options: ["(A) go", "(B) to", "(C) the aquarium", "(D) yesterday"]
-  
-  Bước 2: "yesterday" = thời gian quá khứ → lỗi ở "go" cần đổi thành "went"
-          "go" nằm ở phần (A)
-  Bước 3: (A) → index 0
-  Bước 4: correctOptionIndex: 0
-  Bước 5: options[0] = "(A) go" ✓ KHỚP! 
-          ❌ KHÔNG PHẢI options[1] = "(B) to"!
-  
-  explanation: "Lỗi ở (A). 'yesterday' là thời gian quá khứ → 'go' phải đổi thành 'went'."
-  
-  ⚠️ LƯU Ý: Trong ví dụ trên, "to" KHÔNG có lỗi! "go to" là đúng ngữ pháp.
-  Lỗi là ở THÌ của động từ (go → went), không phải ở giới từ "to".
-  
-  📌 VÍ DỤ 4 - LỖI Ở (D):
-  sentence: "He (A) put (B) the (C) cup (D) in the table."
-  options: ["(A) put", "(B) the", "(C) cup", "(D) in the table"]
-  
-  Bước 2: Lỗi ở "in the table" → phải dùng "on" (vật ở TRÊN bề mặt)
-          "in the table" nằm ở phần (D)
-  Bước 3: (D) → index 3
-  Bước 4: correctOptionIndex: 3
-  Bước 5: options[3] = "(D) in the table" ✓ KHỚP VỚI LỖI!
-  
-  explanation: "Lỗi ở (D). Vật ở TRÊN bề mặt → dùng 'on', không phải 'in'."
-  
-  📌 VÍ DỤ 5 - LỖI Ở (C):
-  sentence: "They (A) went (B) to (C) school yesterday (D) ."
-  options: ["(A) went", "(B) to", "(C) school yesterday", "(D) ."]
-  
-  Giả sử câu này đúng ngữ pháp, KHÔNG có lỗi → ĐỔI thành câu khác!
-  
-  sentence: "She (A) can (B) swims (C) very fast (D) ."
-  options: ["(A) can", "(B) swims", "(C) very fast", "(D) ."]
-  
-  Bước 2: "can" là modal verb → động từ theo sau phải ở dạng nguyên
-          "swims" sai, phải là "swim" → Lỗi ở (B)
-  Bước 3: (B) → index 1
-  Bước 4: correctOptionIndex: 1
-  Bước 5: options[1] = "(B) swims" ✓ KHỚP VỚI LỖI!
-  
-  explanation: "Lỗi ở (B). Sau 'can' động từ phải ở dạng nguyên → 'swim', không phải 'swims'."
-  
-  ===== ❌ SAI LẦM THƯỜNG GẶP - TUYỆT ĐỐI KHÔNG LÀM ❌ =====
-  
-  ❌ SAI LẦM 1: Explanation nói lỗi ở "go" nhưng correctOptionIndex = 1
-  Vì "go" ở phần (A) → correctOptionIndex PHẢI = 0, không phải 1!
-  
-  ❌ SAI LẦM 2: Nhầm lẫn giữa vị trí xuất hiện và chữ cái
-  "go" xuất hiện đầu tiên NHƯNG nó có thể là (A), (B), (C) hoặc (D) tùy câu
-  → Luôn xem chữ cái trong ngoặc đơn, KHÔNG đếm vị trí!
-  
-  ===== KIỂM TRA CUỐI CÙNG CHO ERROR ID =====
-  
-  🔍 FINAL CHECK - ĐỌC TO VÀ TRẢ LỜI:
-  
-  1. Explanation nói lỗi ở từ/cụm từ nào? → Ghi ra: "__________"
-  2. Từ/cụm từ đó nằm ở chữ cái nào (A/B/C/D)? → Ghi ra: "(___)"
-  3. Chữ cái đó tương ứng với index mấy? → A=0, B=1, C=2, D=3 → Index: ___
-  4. correctOptionIndex trong JSON có = index ở bước 3 không? → CÓ ✓ / KHÔNG ❌
-  
-  Nếu bước 4 = KHÔNG → SỬA LẠI correctOptionIndex!
-  
-  ===== 🚨🚨🚨 SCRAMBLE - MANDATORY WORD MATCH VALIDATION 🚨🚨🚨 =====
-
-  📝 SCRAMBLE (scramble):
-  ⚠️ LỖI THƯỜNG GẶP NHẤT: TỪ TRONG SCRAMBLED KHÔNG KHỚP VỚI CORRECTSENTENCE!
-  
-  🔴 QUY TẮC VÀNG: scrambled PHẢI chứa CHÍNH XÁC các từ trong correctSentence!
-  
-  📋 QUY TRÌNH BẮT BUỘC CHO MỖI CÂU SCRAMBLE:
-  
-  BƯỚC 1 - VIẾT CORRECTSENTENCE TRƯỚC:
-  Viết câu hoàn chỉnh, kiểm tra ngữ pháp 100% đúng.
-  Ví dụ: "He has a bat."
-  
-  BƯỚC 2 - TÁCH TỪ:
-  Tách correctSentence thành mảng từ (bao gồm cả dấu câu).
-  Ví dụ: ["He", "has", "a", "bat", "."] → 5 phần tử
-  
-  BƯỚC 3 - XÁO TRỘN:
-  Xáo trộn mảng từ để tạo scrambled.
-  Ví dụ: ["bat", "a", "He", "has", "."] → 5 phần tử
-  
-  BƯỚC 4 - XÁC MINH:
-  ĐẾM SỐ PHẦN TỬ: scrambled.length === correctSentence (đã tách).length?
-  SO SÁNH TỪ: Mỗi từ trong scrambled có trong correctSentence không?
-  
-  ===== VÍ DỤ ĐÚNG =====
-  
-  VÍ DỤ 1:
-  ✓ correctSentence: "He has a bat."
-  ✓ Tách từ: ["He", "has", "a", "bat", "."] (5 từ)
-  ✓ scrambled: ["bat", "a", "He", "has", "."] (5 từ) ✓ KHỚP!
-  
-  VÍ DỤ 2:
-  ✓ correctSentence: "This is a green apple."
-  ✓ Tách từ: ["This", "is", "a", "green", "apple", "."] (6 từ)
-  ✓ scrambled: ["green", "a", "apple", "This", "is", "."] (6 từ) ✓ KHỚP!
-  
-  ===== VÍ DỤ SAI - TUYỆT ĐỐI KHÔNG LÀM =====
-  
-  ❌ SAI - THỪA TỪ:
-  correctSentence: "I like pizza."
-  scrambled: ["to", "I", "pizza", "like", "."] ← Thừa "to"! WRONG!
-  
-  ❌ SAI - THIẾU TỪ:
-  correctSentence: "This is a green apple."
-  scrambled: ["green", "apple", "This", "is", "."] ← Thiếu "a"! WRONG!
-  
-  ❌ SAI - TỪ KHÁC:
-  correctSentence: "This is a green apple."
-  scrambled: ["green", "an", "apple", "This", "is", "."] ← "an" thay vì "a"! WRONG!
-  
-  ===== KIỂM TRA CUỐI CÙNG CHO SCRAMBLE =====
-  Trước khi submit mỗi câu Scramble, TRẢ LỜI các câu hỏi:
-  □ correctSentence có đúng ngữ pháp 100% không?
-  □ Tôi đã tách correctSentence thành từng từ chưa?
-  □ scrambled có ĐÚNG số từ như correctSentence không?
-  □ Mỗi từ trong scrambled có xuất hiện trong correctSentence không?
-  □ Không có từ thừa, từ thiếu, hay từ bị thay đổi?
-
-  MANDATORY REQUIREMENTS:
-  1. Extract 100% of vocabulary and grammar from source
-  2. Create EXACTLY 10 Multiple Choice Questions
-  3. Create EXACTLY 10 Scramble Questions
-  4. Create EXACTLY 10 Fill-in-the-blank Questions
-  5. Create EXACTLY 10 Error Identification Questions
-  NOTE: Do NOT create Listening Questions.
-  
-  ===== FINAL QUALITY ASSURANCE =====
-  Before submitting, verify EACH question:
-  
-  ✅ CHECKLIST FOR EVERY QUESTION:
-  □ Does the correct answer follow the 15 grammar rules?
-  □ Is there only ONE possible correct answer?
-  □ For Error ID: Did I verify EACH option (A), (B), (C), (D)?
-  □ For Error ID: Is correctOptionIndex pointing to the ACTUAL error?
-  □ For Error ID: Are the other 3 options grammatically correct?
-  □ For Scramble: Does scrambled array contain EXACT same words as correctSentence?
-  □ For Scramble: No extra words, no missing words, no changed words?
-  □ Is the explanation accurate and educational?
-  
-  ⚠️ IF UNSURE: Re-read the 15 grammar rules and apply them systematically
-  
-  All content must align strictly with the source provided. Do not invent unrelated topics.`;
+  OUTPUT: Return valid JSON matching the schema.
+  Do NOT include any text outside the JSON.`;
 
   const inputParts: any[] = [];
-  if (textInput) inputParts.push({ text: `SOURCE TEXT:\n${textInput}` });
-  if (topicInput) inputParts.push({ text: `TOPIC FOCUS:\n${topicInput}` });
+  if (textInput) inputParts.push({ text: `SOURCE TEXT: \n${textInput}` });
+  if (topicInput) inputParts.push({ text: `TOPIC FOCUS: \n${topicInput} ` });
   inputParts.push(...imageParts);
   inputParts.push({ text: prompt });
 
@@ -739,14 +422,16 @@ export const generateLessonPlan = async (topicInput?: string, textInput?: string
   });
 };
 
+
+
 export const analyzeImageAndCreateContent = async (images: string[], mimeType: string, char: CharacterProfile, mode: AppMode, customPrompt?: string, topic?: string, text?: string): Promise<ContentResult> => {
   const ai = getAI();
   const imageParts = images.map(data => ({ inlineData: { data, mimeType } }));
-  const prompt = `MRS. DUNG AI - CREATIVE STORYTELLER.
+  const prompt = `MRS.DUNG AI - CREATIVE STORYTELLER.
   
   Analyze the input and create:
-  1. A magical story featuring ${char.name}.
-  2. EXACTLY 10 Comprehension Quiz questions.
+1. A magical story featuring ${char.name}.
+2. EXACTLY 10 Comprehension Quiz questions.
   3. EXACTLY 10 Speaking interaction prompts.
   4. A SCIENTIFIC WRITING PROMPT for the student in BOTH English and Vietnamese.
   
@@ -763,7 +448,7 @@ export const analyzeImageAndCreateContent = async (images: string[], mimeType: s
 
 const safeJsonParse = <T>(text: string): T => {
   try {
-    let cleanText = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+    let cleanText = text.trim().replace(/^```(?: json) ?\s * /i, '').replace(/\s * ```$/i, '');
     const start = Math.min(cleanText.indexOf('{') === -1 ? Infinity : cleanText.indexOf('{'), cleanText.indexOf('[') === -1 ? Infinity : cleanText.indexOf('['));
     const end = Math.max(cleanText.lastIndexOf('}'), cleanText.lastIndexOf(']'));
     if (start !== Infinity && end !== -1) cleanText = cleanText.substring(start, end + 1);
@@ -771,7 +456,38 @@ const safeJsonParse = <T>(text: string): T => {
   } catch (e) { throw new Error("Lỗi xử lý dữ liệu AI."); }
 };
 
-const lessonSchema = { type: Type.OBJECT, properties: { topic: { type: Type.STRING }, vocabulary: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { word: { type: Type.STRING }, emoji: { type: Type.STRING }, ipa: { type: Type.STRING }, meaning: { type: Type.STRING }, example: { type: Type.STRING }, sentenceMeaning: { type: Type.STRING }, type: { type: Type.STRING } }, required: ["word", "ipa", "meaning", "example", "type", "emoji"] } }, grammar: { type: Type.OBJECT, properties: { topic: { type: Type.STRING }, explanation: { type: Type.STRING }, examples: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["topic", "explanation", "examples"] }, reading: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, passage: { type: Type.STRING }, translation: { type: Type.STRING }, comprehension: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctAnswer: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "question", "options", "correctAnswer"] } } }, required: ["title", "passage", "translation", "comprehension"] }, practice: { type: Type.OBJECT, properties: { listening: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, audioText: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctAnswer: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "audioText", "options", "correctAnswer"] } }, megaTest: { type: Type.OBJECT, properties: { multipleChoice: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctAnswer: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "question", "options", "correctAnswer"] } }, scramble: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, scrambled: { type: Type.ARRAY, items: { type: Type.STRING } }, correctSentence: { type: Type.STRING }, translation: { type: Type.STRING } }, required: ["id", "scrambled", "correctSentence"] } }, fillBlank: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, question: { type: Type.STRING }, correctAnswer: { type: Type.STRING }, clueEmoji: { type: Type.STRING } }, required: ["id", "question", "correctAnswer"] } }, errorId: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, sentence: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctOptionIndex: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "sentence", "correctOptionIndex"] } }, matching: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, left: { type: Type.STRING }, right: { type: Type.STRING } }, required: ["id", "left", "right"] } } }, required: ["multipleChoice", "scramble", "fillBlank", "errorId", "matching"] } }, required: ["listening", "megaTest"] }, teacherTips: { type: Type.STRING } }, required: ["topic", "vocabulary", "grammar", "reading", "practice", "teacherTips"] };
+const lessonSchema = {
+  type: Type.OBJECT,
+  properties: {
+    topic: { type: Type.STRING },
+    level: { type: Type.STRING },
+    vocabulary: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { word: { type: Type.STRING }, emoji: { type: Type.STRING }, ipa: { type: Type.STRING }, meaning: { type: Type.STRING }, example: { type: Type.STRING }, sentenceMeaning: { type: Type.STRING }, type: { type: Type.STRING } }, required: ["word", "ipa", "meaning", "example", "type", "emoji"] } },
+    grammar: { type: Type.OBJECT, properties: { topic: { type: Type.STRING }, explanation: { type: Type.STRING }, examples: { type: Type.ARRAY, items: { type: Type.STRING } } }, required: ["topic", "explanation", "examples"] },
+    reading: { type: Type.OBJECT, properties: { title: { type: Type.STRING }, passage: { type: Type.STRING }, translation: { type: Type.STRING }, comprehension: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, question: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctAnswer: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "question", "options", "correctAnswer"] } } }, required: ["title", "passage", "translation", "comprehension"] },
+    practice: {
+      type: Type.OBJECT,
+      properties: {
+        listening: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, audioText: { type: Type.STRING }, options: { type: Type.ARRAY, items: { type: Type.STRING } }, correctAnswer: { type: Type.INTEGER }, explanation: { type: Type.STRING } }, required: ["id", "audioText", "options", "correctAnswer"] } },
+        megaTest: {
+          type: Type.OBJECT,
+          properties: {
+            level: { type: Type.STRING },
+            passage: { type: Type.STRING },
+            passage_translation: { type: Type.STRING },
+            rewrite: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, original_sentence: { type: Type.STRING }, instruction: { type: Type.STRING }, hint_sample: { type: Type.STRING }, rewritten_correct: { type: Type.STRING }, allowed_variants: { type: Type.ARRAY, items: { type: Type.STRING } }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "original_sentence", "hint_sample", "rewritten_correct", "explanation_vi", "level"] } },
+            reading: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, question_text: { type: Type.STRING }, choices: { type: Type.ARRAY, items: { type: Type.STRING } }, correct_choice: { type: Type.STRING }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "question_text", "choices", "correct_choice", "explanation_vi", "level"] } },
+            pronunciation: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, instruction: { type: Type.STRING }, choices: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { word: { type: Type.STRING }, underlined: { type: Type.STRING } } } }, correct_choice: { type: Type.STRING }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "instruction", "choices", "correct_choice", "explanation_vi", "level"] } }
+          },
+          required: ["level", "passage", "rewrite", "reading", "pronunciation"]
+        }
+      },
+      required: ["listening", "megaTest"]
+    },
+    teacherTips: { type: Type.STRING }
+  },
+  required: ["topic", "level", "vocabulary", "grammar", "reading", "practice", "teacherTips"]
+};
+
 
 const contentResultSchema = {
   type: Type.OBJECT,
@@ -793,7 +509,7 @@ export const generateMindMap = async (content: any, mode: MindMapMode): Promise<
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `Create a professional Mind Map following Tony Buzan's principles for: ${JSON.stringify(content)}. 
-    Structure: Root node is the main topic. Child nodes are key sub-concepts with emojis. 
+Structure: Root node is the main topic.Child nodes are key sub - concepts with emojis. 
     Output strictly in JSON format matching the schema.`,
     config: { responseMimeType: "application/json", responseSchema: mindMapSchema }
   });
@@ -814,10 +530,10 @@ export const generateStoryImage = async (prompt: string, style: string, ratio: I
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image',
-    contents: { parts: [{ text: `A high-quality educational illustration for kids: ${prompt}. Artistic Style: ${style}. High resolution, 8k, vibrant colors.` }] },
+    contents: { parts: [{ text: `A high - quality educational illustration for kids: ${prompt}. Artistic Style: ${style}. High resolution, 8k, vibrant colors.` }] },
     config: { imageConfig: { aspectRatio: ratio } }
   });
-  for (const part of response.candidates[0].content.parts) { if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`; }
+  for (const part of response.candidates[0].content.parts) { if (part.inlineData) return `data: image / png; base64, ${part.inlineData.data} `; }
   throw new Error("Image generation failed");
 };
 
@@ -825,7 +541,7 @@ export const correctWriting = async (userText: string, creativePrompt: string): 
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Evaluate and correct this student writing: "${userText}". The topic was: "${creativePrompt}". Provide a score (0-10), feedback, fixed text, and detailed error list.`,
+    contents: `Evaluate and correct this student writing: "${userText}".The topic was: "${creativePrompt}".Provide a score(0 - 10), feedback, fixed text, and detailed error list.`,
     config: { responseMimeType: "application/json", responseSchema: writingCorrectionSchema }
   });
   return safeJsonParse<any>(response.text);
@@ -847,14 +563,14 @@ export const generateMindMapPrompt = async (content: any, mode: MindMapMode): Pr
   const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `TASK: Generate a single, highly detailed English prompt for drawing a professional Tony Buzan Mind Map using AI art tools (like Midjourney or DALL-E). 
+    contents: `TASK: Generate a single, highly detailed English prompt for drawing a professional Tony Buzan Mind Map using AI art tools (like Midjourney or DALL - E). 
     CONTENT SOURCE: ${JSON.stringify(content)}. 
     
     PROMPT SPECIFICATIONS:
-    - Style: 3D Organic Tony Buzan Mind Map, Pixar-style animation render.
+- Style: 3D Organic Tony Buzan Mind Map, Pixar - style animation render.
     - Central Theme: A clear 3D icon representing the lesson topic at the center.
-    - Branches: Curvy, organic, thick-to-thin colorful branches spreading outwards.
-    - Elements: Floating keywords in English, cute 3D emojis/icons next to branches.
+    - Branches: Curvy, organic, thick - to - thin colorful branches spreading outwards.
+    - Elements: Floating keywords in English, cute 3D emojis / icons next to branches.
     - Environment: Clean bright studio background, 8k resolution, cinematic lighting, vibrant pedagogical colors.
     - Exclude: No text other than the keywords. 
     
