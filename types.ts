@@ -90,14 +90,15 @@ export interface TrueFalseQ {
   explanation_vi: string;
 }
 
-// 4. Fill-blank with Word Box (5 questions)
+// 4. Fill-blank with Word Box (1 paragraph with 5 blanks)
 export interface FillBlankBoxQ {
-  id: string;
-  type: 'fill_blank_box';
-  sentence: string; // Sentence with ____ blank
-  word_box: string[]; // 6-8 words to choose from
-  correct_answer: string;
-  explanation_vi: string;
+  paragraph: string; // Paragraph with blanks marked as (1) ____, (2) ____, etc.
+  paragraph_translation: string; // Vietnamese translation
+  word_box: string[]; // 6-8 words to choose from (includes distractors)
+  blanks: {
+    number: number; // 1, 2, 3, 4, 5
+    correct_answer: string;
+  }[];
 }
 
 // Combined 50-question test structure
@@ -117,7 +118,7 @@ export interface MegaTest50 {
   rewrite: RewriteQ[];               // 5 questions
   readingMCQ: ReadingMCQ[];          // 5 questions  
   trueFalse: TrueFalseQ[];           // 5 questions
-  fillBlankBox: FillBlankBoxQ[];     // 5 questions
+  fillBlankBox: FillBlankBoxQ;        // 1 paragraph with 5 blanks
 }
 
 export interface MatchingPair {

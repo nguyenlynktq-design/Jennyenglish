@@ -77,8 +77,10 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
         data.scramble?.forEach((q) => {
           if (submitted[q.id]) {
             const userSentence = (scrambleSelections[q.id] || []).join(' ');
-            if (userSentence.toLowerCase().replace(/\s+/g, ' ').trim() ===
-              q.correctSentence.toLowerCase().replace(/\s+/g, ' ').trim()) correct++;
+            // Normalize: remove punctuation, lowercase, trim spaces
+            const normalizeForCompare = (s: string) =>
+              s.toLowerCase().replace(/[.,!?;:'"]/g, '').replace(/\s+/g, ' ').trim();
+            if (normalizeForCompare(userSentence) === normalizeForCompare(q.correctSentence)) correct++;
           }
         });
         break;
@@ -101,9 +103,10 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
         });
         break;
       case 'fillbox':
-        total = data.fillBlankBox?.length || 0;
-        data.fillBlankBox?.forEach((q) => {
-          if (submitted[q.id] && answers[q.id] === q.correct_answer) correct++;
+        total = data.fillBlankBox?.blanks?.length || 0;
+        data.fillBlankBox?.blanks?.forEach((blank) => {
+          const answerId = `fillbox_${blank.number}`;
+          if (submitted[answerId] && answers[answerId]?.toLowerCase().trim() === blank.correct_answer.toLowerCase().trim()) correct++;
         });
         break;
     }
@@ -126,7 +129,7 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
       case 'rewrite': data.rewrite?.forEach(q => { if (submitted[q.id]) count++; }); break;
       case 'reading': data.readingMCQ?.forEach(q => { if (submitted[q.id]) count++; }); break;
       case 'truefalse': data.trueFalse?.forEach(q => { if (submitted[q.id]) count++; }); break;
-      case 'fillbox': data.fillBlankBox?.forEach(q => { if (submitted[q.id]) count++; }); break;
+      case 'fillbox': data.fillBlankBox?.blanks?.forEach(blank => { if (submitted[`fillbox_${blank.number}`]) count++; }); break;
     }
     return count;
   };
@@ -204,8 +207,8 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
               key={zone.id}
               onClick={() => setActiveZone(zone.id)}
               className={`px-4 py-2 rounded-xl font-semibold transition-all flex items-center gap-2 ${isActive
-                  ? 'bg-yellow-400 text-green-900 scale-105 shadow-lg'
-                  : 'bg-white/20 text-white hover:bg-white/30'
+                ? 'bg-yellow-400 text-green-900 scale-105 shadow-lg'
+                : 'bg-white/20 text-white hover:bg-white/30'
                 }`}
             >
               <span>{zone.icon}</span>
@@ -236,14 +239,14 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                       onClick={() => { handleAnswer(q.id, optIdx); handleSubmit(q.id); }}
                       disabled={submitted[q.id]}
                       className={`p-3 rounded-lg text-left transition-all border ${submitted[q.id]
-                          ? optIdx === q.correctAnswer
-                            ? 'bg-green-100 border-green-500 text-green-800'
-                            : answers[q.id] === optIdx
-                              ? 'bg-red-100 border-red-500 text-red-800'
-                              : 'bg-gray-100 border-gray-300'
+                        ? optIdx === q.correctAnswer
+                          ? 'bg-green-100 border-green-500 text-green-800'
                           : answers[q.id] === optIdx
-                            ? 'bg-blue-100 border-blue-500'
-                            : 'bg-white border-gray-300 hover:border-blue-400'
+                            ? 'bg-red-100 border-red-500 text-red-800'
+                            : 'bg-gray-100 border-gray-300'
+                        : answers[q.id] === optIdx
+                          ? 'bg-blue-100 border-blue-500'
+                          : 'bg-white border-gray-300 hover:border-blue-400'
                         }`}
                     >
                       <span className="font-bold mr-2">{['A', 'B', 'C', 'D'][optIdx]}.</span>
@@ -292,7 +295,7 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                 </div>
                 {submitted[q.id] && (
                   <p className={`mt-3 text-sm ${answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()
-                      ? 'text-green-600' : 'text-red-600'
+                    ? 'text-green-600' : 'text-red-600'
                     }`}>
                     {answers[q.id]?.toLowerCase().trim() === q.correctAnswer.toLowerCase().trim()
                       ? '✓ Đúng!'
@@ -316,8 +319,10 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                 if (i !== -1) available.splice(i, 1);
               });
               const userSentence = selected.join(' ');
-              const isCorrect = userSentence.toLowerCase().replace(/\s+/g, ' ').trim() ===
-                q.correctSentence.toLowerCase().replace(/\s+/g, ' ').trim();
+              // Normalize: remove punctuation, lowercase, trim spaces
+              const normalizeForCompare = (s: string) =>
+                s.toLowerCase().replace(/[.,!?;:'"]/g, '').replace(/\s+/g, ' ').trim();
+              const isCorrect = normalizeForCompare(userSentence) === normalizeForCompare(q.correctSentence);
 
               return (
                 <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
@@ -448,14 +453,14 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                         onClick={() => { handleAnswer(q.id, letter); handleSubmit(q.id); }}
                         disabled={submitted[q.id]}
                         className={`w-full p-3 rounded-lg text-left transition-all border ${submitted[q.id]
-                            ? letter === q.correct_choice
-                              ? 'bg-green-100 border-green-500 text-green-800'
-                              : answers[q.id] === letter
-                                ? 'bg-red-100 border-red-500 text-red-800'
-                                : 'bg-gray-100 border-gray-300'
+                          ? letter === q.correct_choice
+                            ? 'bg-green-100 border-green-500 text-green-800'
                             : answers[q.id] === letter
-                              ? 'bg-blue-100 border-blue-500'
-                              : 'bg-white border-gray-300 hover:border-blue-400'
+                              ? 'bg-red-100 border-red-500 text-red-800'
+                              : 'bg-gray-100 border-gray-300'
+                          : answers[q.id] === letter
+                            ? 'bg-blue-100 border-blue-500'
+                            : 'bg-white border-gray-300 hover:border-blue-400'
                           }`}
                       >
                         <span className="font-bold mr-2">{letter}.</span>
@@ -498,14 +503,14 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                     onClick={() => { handleAnswer(q.id, true); handleSubmit(q.id); }}
                     disabled={submitted[q.id]}
                     className={`flex-1 p-3 rounded-lg font-bold transition-all border ${submitted[q.id]
-                        ? q.correct_answer === true
-                          ? 'bg-green-100 border-green-500 text-green-800'
-                          : answers[q.id] === true
-                            ? 'bg-red-100 border-red-500 text-red-800'
-                            : 'bg-gray-100 border-gray-300'
+                      ? q.correct_answer === true
+                        ? 'bg-green-100 border-green-500 text-green-800'
                         : answers[q.id] === true
-                          ? 'bg-blue-100 border-blue-500'
-                          : 'bg-white border-gray-300 hover:border-green-400'
+                          ? 'bg-red-100 border-red-500 text-red-800'
+                          : 'bg-gray-100 border-gray-300'
+                      : answers[q.id] === true
+                        ? 'bg-blue-100 border-blue-500'
+                        : 'bg-white border-gray-300 hover:border-green-400'
                       }`}
                   >
                     ✓ TRUE
@@ -514,14 +519,14 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                     onClick={() => { handleAnswer(q.id, false); handleSubmit(q.id); }}
                     disabled={submitted[q.id]}
                     className={`flex-1 p-3 rounded-lg font-bold transition-all border ${submitted[q.id]
-                        ? q.correct_answer === false
-                          ? 'bg-green-100 border-green-500 text-green-800'
-                          : answers[q.id] === false
-                            ? 'bg-red-100 border-red-500 text-red-800'
-                            : 'bg-gray-100 border-gray-300'
+                      ? q.correct_answer === false
+                        ? 'bg-green-100 border-green-500 text-green-800'
                         : answers[q.id] === false
-                          ? 'bg-blue-100 border-blue-500'
-                          : 'bg-white border-gray-300 hover:border-red-400'
+                          ? 'bg-red-100 border-red-500 text-red-800'
+                          : 'bg-gray-100 border-gray-300'
+                      : answers[q.id] === false
+                        ? 'bg-blue-100 border-blue-500'
+                        : 'bg-white border-gray-300 hover:border-red-400'
                       }`}
                   >
                     ✗ FALSE
@@ -538,43 +543,77 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
           </div>
         )}
 
-        {/* Fill-blank Box Section */}
-        {activeZone === 'fillbox' && (
+        {/* Fill-blank Box Section - Paragraph Style */}
+        {activeZone === 'fillbox' && data.fillBlankBox && (
           <div className="space-y-6">
-            <h3 className="text-xl font-bold text-green-800 mb-4">📦 Điền Từ Trong Khung (5 câu)</h3>
-            {data.fillBlankBox?.map((q, idx) => (
-              <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
-                <p className="font-semibold mb-3">Câu {idx + 1}: {q.sentence}</p>
+            <h3 className="text-xl font-bold text-green-800 mb-4">📦 Điền Từ Trong Khung (5 chỗ trống)</h3>
 
-                {/* Word Box */}
-                <div className="flex flex-wrap gap-2 mb-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  {q.word_box.map((word, i) => (
-                    <button
-                      key={i}
-                      onClick={() => { handleAnswer(q.id, word); handleSubmit(q.id); }}
-                      disabled={submitted[q.id]}
-                      className={`px-4 py-2 rounded-lg font-medium transition-all border ${submitted[q.id]
-                          ? word === q.correct_answer
-                            ? 'bg-green-200 border-green-500 text-green-800'
-                            : answers[q.id] === word
-                              ? 'bg-red-200 border-red-500 text-red-800'
-                              : 'bg-gray-100 border-gray-300'
-                          : 'bg-white border-amber-300 hover:bg-amber-100'
-                        }`}
-                    >
-                      {word}
-                    </button>
-                  ))}
-                </div>
-
-                {submitted[q.id] && (
-                  <p className={`mt-3 text-sm ${answers[q.id] === q.correct_answer ? 'text-green-600' : 'text-red-600'}`}>
-                    {answers[q.id] === q.correct_answer ? '✓ Đúng!' : `✗ Sai! Đáp án: ${q.correct_answer}`}
-                    <span className="block text-gray-600 mt-1">{q.explanation_vi}</span>
-                  </p>
-                )}
+            {/* Word Box at Top */}
+            <div className="bg-amber-50 p-4 rounded-lg border-2 border-amber-300">
+              <p className="text-sm text-amber-700 mb-2 font-semibold">Chọn từ trong khung để điền vào chỗ trống:</p>
+              <div className="flex flex-wrap gap-3">
+                {data.fillBlankBox.word_box.map((word, i) => (
+                  <span key={i} className="px-4 py-2 bg-white border border-amber-400 rounded-lg font-medium">
+                    {word}
+                  </span>
+                ))}
               </div>
-            ))}
+            </div>
+
+            {/* Paragraph with blanks */}
+            <div className="bg-gray-50 p-6 rounded-lg border">
+              <p className="text-gray-800 leading-relaxed text-lg mb-6">
+                {data.fillBlankBox.paragraph}
+              </p>
+
+              {/* Vietnamese translation */}
+              <details className="mb-6">
+                <summary className="text-blue-600 cursor-pointer text-sm">Xem dịch tiếng Việt</summary>
+                <p className="text-gray-600 mt-2 text-sm italic">{data.fillBlankBox.paragraph_translation}</p>
+              </details>
+
+              {/* Answer inputs for each blank */}
+              <div className="space-y-4">
+                {data.fillBlankBox.blanks.map((blank, idx) => {
+                  const answerId = `fillbox_${blank.number}`;
+                  const isSubmitted = submitted[answerId];
+                  const userAnswer = answers[answerId] || '';
+                  const isCorrect = userAnswer.toLowerCase().trim() === blank.correct_answer.toLowerCase().trim();
+
+                  return (
+                    <div key={blank.number} className="flex items-center gap-4">
+                      <span className="font-bold text-lg w-8">({blank.number})</span>
+                      <input
+                        type="text"
+                        value={userAnswer}
+                        onChange={(e) => handleAnswer(answerId, e.target.value)}
+                        disabled={isSubmitted}
+                        placeholder="Nhập từ..."
+                        className={`flex-1 p-3 border-2 rounded-lg focus:ring-2 focus:ring-blue-500 ${isSubmitted
+                          ? isCorrect
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-red-500 bg-red-50'
+                          : 'border-gray-300'
+                          }`}
+                      />
+                      {!isSubmitted && (
+                        <button
+                          onClick={() => handleSubmit(answerId)}
+                          className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                        >
+                          ✓
+                        </button>
+                      )}
+                      {isSubmitted && (
+                        <span className={`text-sm font-medium ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
+                          {isCorrect ? '✓ Đúng' : `✗ ${blank.correct_answer}`}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </div>

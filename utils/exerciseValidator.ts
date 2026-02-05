@@ -74,30 +74,31 @@ export function validateTrueFalseQ(q: any, index: number): { valid: boolean; err
     return { valid: true };
 }
 
-export function validateFillBlankBoxQ(q: any, index: number): { valid: boolean; error?: string } {
+export function validateFillBlankBoxQ(q: any): { valid: boolean; error?: string } {
     if (!q || typeof q !== 'object') {
-        return { valid: false, error: `Fill-blank-box Q${index + 1}: không phải object hợp lệ` };
+        return { valid: false, error: 'Fill-blank-box: không phải object hợp lệ' };
     }
 
-    const requiredFields = ['id', 'sentence', 'word_box', 'correct_answer', 'explanation_vi'];
-    for (const field of requiredFields) {
-        if (q[field] === undefined || q[field] === null || (typeof q[field] === 'string' && q[field].trim() === '')) {
-            return { valid: false, error: `Fill-blank-box Q${index + 1}: thiếu field "${field}"` };
+    // Check paragraph
+    if (!q.paragraph || typeof q.paragraph !== 'string' || q.paragraph.trim() === '') {
+        return { valid: false, error: 'Fill-blank-box: thiếu paragraph' };
+    }
+
+    // Check word_box
+    if (!Array.isArray(q.word_box) || q.word_box.length < 5) {
+        return { valid: false, error: 'Fill-blank-box: word_box phải có ít nhất 5 từ' };
+    }
+
+    // Check blanks array
+    if (!Array.isArray(q.blanks) || q.blanks.length < 4) {
+        return { valid: false, error: 'Fill-blank-box: blanks phải có ít nhất 4 chỗ trống' };
+    }
+
+    // Check each blank has number and correct_answer
+    for (const blank of q.blanks) {
+        if (typeof blank.number !== 'number' || !blank.correct_answer) {
+            return { valid: false, error: 'Fill-blank-box: mỗi blank phải có number và correct_answer' };
         }
-    }
-
-    if (!Array.isArray(q.word_box) || q.word_box.length < 4) {
-        return { valid: false, error: `Fill-blank-box Q${index + 1}: word_box phải có ít nhất 4 từ` };
-    }
-
-    // Check sentence has blank
-    if (!q.sentence.includes('____')) {
-        return { valid: false, error: `Fill-blank-box Q${index + 1}: sentence phải có chỗ trống ____` };
-    }
-
-    // Check correct_answer is in word_box
-    if (!q.word_box.includes(q.correct_answer)) {
-        return { valid: false, error: `Fill-blank-box Q${index + 1}: correct_answer phải có trong word_box` };
     }
 
     return { valid: true };
@@ -236,21 +237,16 @@ export function validateMegaTest50(test: any): ValidationResult {
         }
     }
 
-    // Validate fill-blank-box (need 5)
-    const validFillBlankBox: FillBlankBoxQ[] = [];
-    if (!Array.isArray(test.fillBlankBox)) {
-        errors.push('Thiếu mảng fillBlankBox questions');
+    // Validate fill-blank-box (single paragraph with 5 blanks)
+    let validFillBlankBox: FillBlankBoxQ | null = null;
+    if (!test.fillBlankBox || typeof test.fillBlankBox !== 'object') {
+        errors.push('Thiếu fillBlankBox object');
     } else {
-        for (let i = 0; i < test.fillBlankBox.length; i++) {
-            const result = validateFillBlankBoxQ(test.fillBlankBox[i], i);
-            if (result.valid) {
-                validFillBlankBox.push(test.fillBlankBox[i]);
-            } else {
-                errors.push(result.error!);
-            }
-        }
-        if (validFillBlankBox.length < 5) {
-            errors.push(`Chỉ có ${validFillBlankBox.length}/5 fill-blank-box questions hợp lệ`);
+        const result = validateFillBlankBoxQ(test.fillBlankBox);
+        if (result.valid) {
+            validFillBlankBox = test.fillBlankBox;
+        } else {
+            errors.push(result.error!);
         }
     }
 
@@ -271,7 +267,7 @@ export function validateMegaTest50(test: any): ValidationResult {
             rewrite: validRewrites.slice(0, 5),
             readingMCQ: validReadings.slice(0, 5),
             trueFalse: validTrueFalse.slice(0, 5),
-            fillBlankBox: validFillBlankBox.slice(0, 5)
+            fillBlankBox: validFillBlankBox!
         } : null
     };
 }

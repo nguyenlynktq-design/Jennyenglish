@@ -367,10 +367,12 @@ export const generateLessonPlan = async (topicInput?: string, textInput?: string
   - translation: Vietnamese translation
   
   SCRAMBLE RULES (CRITICAL):
-  ✓ scrambled must contain EXACT words from correctSentence
+  ✓ scrambled MUST be RANDOMLY SHUFFLED - words must NOT be in correct order!
+  ✓ scrambled contains EXACT same words from correctSentence (just shuffled)
   ✓ Include punctuation as separate items (e.g., ".", "?", "!")
   ✓ No extra words, no missing words, no changed words
   ✓ Verify word count matches
+  ✓ Example: correctSentence="I love cats." → scrambled=["cats", "love", ".", "I"] (SHUFFLED!)
   
   4️⃣ SENTENCE REWRITING (5 questions)
   Each question must include:
@@ -419,20 +421,34 @@ export const generateLessonPlan = async (topicInput?: string, textInput?: string
   ✓ Mix of true and false answers (not all true/false)
   ✓ Test comprehension, not trick questions
   
-  7️⃣ FILL-BLANK WORD BOX (5 questions)
-  Each question must include:
-  - id: "fillbox_1" to "fillbox_5"
-  - type: "fill_blank_box"
-  - sentence: Sentence with ONE blank "____"
-  - word_box: Array of 6-8 words (1 correct + 5-7 distractors)
-  - correct_answer: The correct word (must be in word_box)
-  - explanation_vi: Vietnamese explanation
+  7️⃣ FILL-BLANK WORD BOX (1 paragraph with 5 blanks)
+  This is ONE paragraph section with a WORD BOX containing 7 words.
+  Structure:
+  - paragraph: A short paragraph with 5 blanks marked as "(1) ____", "(2) ____", "(3) ____", "(4) ____", "(5) ____"
+  - paragraph_translation: Vietnamese translation of the paragraph
+  - word_box: Array of 7 words (5 correct + 2 distractors), including one example answer marked with underline
+  - blanks: Array of 5 objects [{number: 1, correct_answer: "word1"}, {number: 2, correct_answer: "word2"}, ...]
   
-  FILL-BOX RULES:
-  ✓ word_box must include the correct answer
-  ✓ Distractors should be same word type (all verbs, all nouns, etc.)
-  ✓ Only ONE word makes the sentence grammatically correct
+  EXAMPLE FORMAT:
+  {
+    "paragraph": "Hi! My (0) name is Bao. I'm ten years old. The (1) ____ in my hometown changes a lot. When it's windy, I like (2) ____. I like reading books when it's rainy. I like (3) ____ when it's sunny. What about you? What do you like (4) ____?",
+    "paragraph_translation": "Xin chào! Tên tôi là Bảo. Tôi 10 tuổi. (1) ____ ở quê tôi thay đổi rất nhiều...",
+    "word_box": ["name", "having a picnic", "flying a kite", "doing", "weather", "swimming", "playing"],
+    "blanks": [
+      {"number": 1, "correct_answer": "weather"},
+      {"number": 2, "correct_answer": "flying a kite"},
+      {"number": 3, "correct_answer": "having a picnic"},
+      {"number": 4, "correct_answer": "doing"}
+    ]
+  }
+  
+  FILL-BOX PARAGRAPH RULES:
+  ✓ Create a SHORT, coherent paragraph (5-8 sentences)
+  ✓ Include 5 numbered blanks: (1), (2), (3), (4), (5)
+  ✓ word_box has 7 words/phrases (5 correct + 2 wrong)
   ✓ Use ${level}-appropriate vocabulary
+  ✓ Make the paragraph theme match the lesson topic
+  
   
   ===== ✅ MEGATEST OUTPUT FORMAT =====
   
@@ -553,7 +569,7 @@ const lessonSchema = {
             rewrite: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, original_sentence: { type: Type.STRING }, instruction: { type: Type.STRING }, hint_sample: { type: Type.STRING }, rewritten_correct: { type: Type.STRING }, allowed_variants: { type: Type.ARRAY, items: { type: Type.STRING } }, explanation_vi: { type: Type.STRING }, level: { type: Type.STRING } }, required: ["id", "original_sentence", "instruction", "rewritten_correct", "explanation_vi", "level"] } },
             readingMCQ: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, question_text: { type: Type.STRING }, choices: { type: Type.ARRAY, items: { type: Type.STRING } }, correct_choice: { type: Type.STRING }, explanation_vi: { type: Type.STRING } }, required: ["id", "question_text", "choices", "correct_choice", "explanation_vi"] } },
             trueFalse: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, statement: { type: Type.STRING }, correct_answer: { type: Type.BOOLEAN }, explanation_vi: { type: Type.STRING } }, required: ["id", "statement", "correct_answer", "explanation_vi"] } },
-            fillBlankBox: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { id: { type: Type.STRING }, type: { type: Type.STRING }, sentence: { type: Type.STRING }, word_box: { type: Type.ARRAY, items: { type: Type.STRING } }, correct_answer: { type: Type.STRING }, explanation_vi: { type: Type.STRING } }, required: ["id", "sentence", "word_box", "correct_answer", "explanation_vi"] } }
+            fillBlankBox: { type: Type.OBJECT, properties: { paragraph: { type: Type.STRING }, paragraph_translation: { type: Type.STRING }, word_box: { type: Type.ARRAY, items: { type: Type.STRING } }, blanks: { type: Type.ARRAY, items: { type: Type.OBJECT, properties: { number: { type: Type.INTEGER }, correct_answer: { type: Type.STRING } }, required: ["number", "correct_answer"] } } }, required: ["paragraph", "paragraph_translation", "word_box", "blanks"] }
           },
           required: ["level", "passage_reading_mcq", "passage_true_false", "multipleChoice", "fillBlank", "scramble", "rewrite", "readingMCQ", "trueFalse", "fillBlankBox"]
         }
