@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MegaTest50, MultipleChoiceQ, FillInputQ, ScrambleQ, RewriteQ, ReadingMCQ, TrueFalseQ, FillBlankBoxQ } from '../types';
 import { calculateScore, isRewriteCorrect, validateMegaTest50 } from '../utils/exerciseValidator';
+import { evaluateRewriteAnswer, RewriteEvaluation } from '../services/geminiService';
 
 interface MegaChallengeProps {
   megaData: MegaTest50;
@@ -31,6 +32,8 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
   const [scrambleSelections, setScrambleSelections] = useState<Record<string, string[]>>({});
+  const [rewriteEvals, setRewriteEvals] = useState<Record<string, RewriteEvaluation>>({});
+  const [evaluating, setEvaluating] = useState<Record<string, boolean>>({});
 
   // Validate data
   const validation = validateMegaTest50(megaData);
@@ -87,7 +90,13 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
       case 'rewrite':
         total = data.rewrite?.length || 0;
         data.rewrite?.forEach((q) => {
-          if (submitted[q.id] && isRewriteCorrect(answers[q.id] || '', q.rewritten_correct, q.allowed_variants)) correct++;
+          // Use AI evaluation result if available, otherwise fallback to string match
+          const evaluation = rewriteEvals[q.id];
+          if (submitted[q.id]) {
+            if (evaluation?.isCorrect || isRewriteCorrect(answers[q.id] || '', q.rewritten_correct, q.allowed_variants)) {
+              correct++;
+            }
+          }
         });
         break;
       case 'reading':
@@ -382,12 +391,36 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
           </div>
         )}
 
-        {/* Rewrite Section */}
+        {/* Rewrite Section - AI-powered flexible evaluation */}
         {activeZone === 'rewrite' && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-green-800 mb-4">📄 Viết Lại Câu (5 câu)</h3>
+            <p className="text-sm text-gray-600 mb-4 bg-blue-50 p-3 rounded-lg">
+              💡 <strong>Tip:</strong> Bạn có thể viết theo cách riêng của mình! AI sẽ đánh giá dựa trên ngữ pháp và ý nghĩa, không cần khớp chính xác đáp án mẫu.
+            </p>
             {data.rewrite?.map((q, idx) => {
-              const isCorrect = submitted[q.id] && isRewriteCorrect(answers[q.id] || '', q.rewritten_correct, q.allowed_variants);
+              const evaluation = rewriteEvals[q.id];
+              const isEvaluating = evaluating[q.id];
+              const isCorrect = evaluation?.isCorrect || isRewriteCorrect(answers[q.id] || '', q.rewritten_correct, q.allowed_variants);
+
+              // Async submit handler for rewrite
+              const handleRewriteSubmit = async () => {
+                if (!answers[q.id] || answers[q.id].trim() === '') return;
+
+                setEvaluating(prev => ({ ...prev, [q.id]: true }));
+                try {
+                  const result = await evaluateRewriteAnswer(
+                    q.original_sentence,
+                    answers[q.id],
+                    q.rewritten_correct
+                  );
+                  setRewriteEvals(prev => ({ ...prev, [q.id]: result }));
+                } catch (error) {
+                  console.error('AI evaluation failed:', error);
+                }
+                setEvaluating(prev => ({ ...prev, [q.id]: false }));
+                setSubmitted(prev => ({ ...prev, [q.id]: true }));
+              };
 
               return (
                 <div key={q.id} className="border rounded-lg p-4 bg-gray-50">
@@ -400,24 +433,66 @@ export const MegaChallenge: React.FC<MegaChallengeProps> = ({ megaData, onScores
                   <textarea
                     value={answers[q.id] || ''}
                     onChange={(e) => handleAnswer(q.id, e.target.value)}
-                    disabled={submitted[q.id]}
+                    disabled={submitted[q.id] || isEvaluating}
                     rows={2}
                     placeholder="Nhập câu viết lại..."
                     className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
                   />
                   {!submitted[q.id] && (
                     <button
-                      onClick={() => handleSubmit(q.id)}
-                      className="mt-2 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      onClick={handleRewriteSubmit}
+                      disabled={isEvaluating || !answers[q.id]?.trim()}
+                      className={`mt-2 px-6 py-2 text-white rounded-lg flex items-center gap-2 ${isEvaluating ? 'bg-gray-400 cursor-wait' : 'bg-green-600 hover:bg-green-700'
+                        }`}
                     >
-                      Kiểm tra
+                      {isEvaluating ? (
+                        <>
+                          <span className="animate-spin">⏳</span> Đang chấm...
+                        </>
+                      ) : (
+                        'Kiểm tra'
+                      )}
                     </button>
                   )}
                   {submitted[q.id] && (
-                    <div className={`mt-3 text-sm ${isCorrect ? 'text-green-600' : 'text-red-600'}`}>
-                      <p>{isCorrect ? '✓ Đúng!' : '✗ Chưa đúng!'}</p>
-                      <p className="text-gray-700 mt-1">Đáp án mẫu: <span className="font-medium">{q.rewritten_correct}</span></p>
-                      <p className="text-gray-600 mt-1">{q.explanation_vi}</p>
+                    <div className="mt-3 space-y-2">
+                      {/* Result header */}
+                      <div className={`flex items-center gap-2 ${isCorrect ? 'text-green-600' : 'text-orange-600'}`}>
+                        <span className="text-xl">{isCorrect ? '✅' : '⚠️'}</span>
+                        <span className="font-semibold">
+                          {isCorrect ? 'Đúng!' : 'Cần xem lại'}
+                        </span>
+                      </div>
+
+                      {/* AI Feedback */}
+                      {evaluation && (
+                        <div className="text-sm space-y-1">
+                          <div className="flex gap-4">
+                            <span className={evaluation.grammarOk ? 'text-green-600' : 'text-red-600'}>
+                              {evaluation.grammarOk ? '✓' : '✗'} Ngữ pháp
+                            </span>
+                            <span className={evaluation.meaningOk ? 'text-green-600' : 'text-red-600'}>
+                              {evaluation.meaningOk ? '✓' : '✗'} Nghĩa
+                            </span>
+                          </div>
+                          <p className="text-gray-700">{evaluation.feedback}</p>
+                          {evaluation.suggestion && !isCorrect && (
+                            <p className="text-blue-600 mt-1">
+                              💡 Gợi ý: {evaluation.suggestion}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Model answer */}
+                      <details className="text-sm">
+                        <summary className="text-gray-600 cursor-pointer">Xem đáp án mẫu</summary>
+                        <p className="text-gray-700 mt-1 p-2 bg-gray-100 rounded">{q.rewritten_correct}</p>
+                        {q.allowed_variants && q.allowed_variants.length > 0 && (
+                          <p className="text-gray-600 mt-1">Các cách viết khác: {q.allowed_variants.join(', ')}</p>
+                        )}
+                      </details>
+                      <p className="text-gray-600 text-sm">{q.explanation_vi}</p>
                     </div>
                   )}
                 </div>

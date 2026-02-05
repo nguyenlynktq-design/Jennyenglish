@@ -597,6 +597,88 @@ const contentResultSchema = {
   required: ["storyEnglish", "translatedText", "writingPromptEn", "writingPromptVi", "vocabulary", "imagePrompt", "comprehensionQuestions", "speakingQuestions"]
 };
 
+// AI-powered Rewrite Answer Evaluation
+export interface RewriteEvaluation {
+  isCorrect: boolean;
+  feedback: string;
+  grammarOk: boolean;
+  meaningOk: boolean;
+  suggestion?: string; // Alternative correct answer
+}
+
+const rewriteEvalSchema = {
+  type: Type.OBJECT,
+  properties: {
+    isCorrect: { type: Type.BOOLEAN },
+    feedback: { type: Type.STRING },
+    grammarOk: { type: Type.BOOLEAN },
+    meaningOk: { type: Type.BOOLEAN },
+    suggestion: { type: Type.STRING }
+  },
+  required: ["isCorrect", "feedback", "grammarOk", "meaningOk"]
+};
+
+export const evaluateRewriteAnswer = async (
+  originalSentence: string,
+  userAnswer: string,
+  modelAnswer: string
+): Promise<RewriteEvaluation> => {
+  const ai = getAI();
+
+  const prompt = `TASK: Evaluate a student's sentence rewriting answer.
+
+ORIGINAL SENTENCE: "${originalSentence}"
+MODEL ANSWER: "${modelAnswer}"
+STUDENT'S ANSWER: "${userAnswer}"
+
+EVALUATION CRITERIA:
+1. MEANING: Does the student's answer preserve the SAME MEANING as the original sentence?
+2. GRAMMAR: Is the student's answer grammatically CORRECT?
+
+FLEXIBLE GRADING RULES:
+✓ ACCEPT if meaning is preserved AND grammar is correct (even if different from model answer)
+✓ Minor differences in word choice are OK if meaning is intact
+✓ The answer doesn't need to match the model answer exactly
+✓ Be lenient with punctuation differences
+
+EXAMPLE:
+- Original: "I have a small cat."
+- Model: "There is a small cat in my house."
+- Student: "There is a small cat." → CORRECT (meaning preserved, grammar OK)
+- Student: "A small cat is had by me." → CORRECT (passive voice, still correct)
+- Student: "There are a small cat." → INCORRECT (grammar error: are vs is)
+
+RESPOND IN JSON:
+{
+  "isCorrect": true/false,
+  "feedback": "Vietnamese explanation for the student",
+  "grammarOk": true/false,
+  "meaningOk": true/false,
+  "suggestion": "If student is wrong but close, suggest a correct alternative"
+}
+
+NOTE: feedback và suggestion phải viết bằng tiếng Việt.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: getSelectedModel(),
+      contents: prompt,
+      config: { responseMimeType: "application/json", responseSchema: rewriteEvalSchema }
+    });
+    return safeJsonParse<RewriteEvaluation>(response.text);
+  } catch (error) {
+    // Fallback to simple comparison if AI fails
+    const normalize = (s: string) => s.toLowerCase().replace(/[.,!?;:'"]/g, '').replace(/\s+/g, ' ').trim();
+    const isMatch = normalize(userAnswer) === normalize(modelAnswer);
+    return {
+      isCorrect: isMatch,
+      feedback: isMatch ? 'Đúng rồi!' : 'Câu trả lời chưa khớp với đáp án mẫu.',
+      grammarOk: true,
+      meaningOk: isMatch
+    };
+  }
+};
+
 export const generateMindMap = async (content: any, mode: MindMapMode): Promise<MindMapData> => {
   const ai = getAI();
   const response = await ai.models.generateContent({
